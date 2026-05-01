@@ -92,13 +92,14 @@ class Regions:
         Raises ValueError if `seg` is not in the end-region.
         """
         region = list(self.regions[0])   # work on a copy
-        seg_sgn = 1 - 2 * (seg < 0)
-        i = region.index(seg)
+        seg_sgn = 1 - 2 * (seg < 0) # sign function (>=0 => +1, <0 => -1)
 
         if seg not in region:
             raise ValueError(
                 f"Segment {seg} is not in the end-region {region}."
             )
+        
+        i = region.index(seg)
 
         # -- FIRST CROSSING: rotate so seg is at index 0, no split ----------
         if not self._first_crossing_done:
