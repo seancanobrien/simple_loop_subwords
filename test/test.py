@@ -1,7 +1,12 @@
-from regions import *
-from computing_project_v1 import *
+# to be able to access files above the test directory
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import ast
+from region_manager import *
+from computing_project_v1 import *
+
 
 def subject_sean(unsigned_word: list[int]) -> bool:
     M = RegionManager(5)
