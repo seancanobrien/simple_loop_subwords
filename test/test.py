@@ -9,7 +9,7 @@ from computing_project_v1 import *
 
 
 def subject_sean(unsigned_word: list[int]) -> bool:
-    M = RegionManager(5)
+    M = RegionsManager(5)
     return M.evaluate_unsigned(unsigned_word)
 
 def subject_simi(unsigned_word: list[int]) -> bool:
