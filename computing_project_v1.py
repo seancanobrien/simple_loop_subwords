@@ -410,6 +410,8 @@ def generate_reduced_words(rank, length):
 
 
 # ── Main ──────────────────────────────────────────────────────────────
+ 
+"""
 
 RANK   = 5
 LENGTH = 8
@@ -458,3 +460,5 @@ print(f"  Total time      : {elapsed:.2f}s")
 print(f"  Rate            : {total/elapsed:,.0f} words/s")
 print(f"  Time per word   : {elapsed/total*1e6:.2f} µs")
 print("═" * 60)
+
+"""

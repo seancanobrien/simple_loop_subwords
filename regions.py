@@ -23,8 +23,8 @@ gen[+k] = +k,  gen[-k] = -k   for k = 1..n
 
 First crossing (of seg in end-region)
 ---------------------------------------
-No new segment is created.  The end-region is cyclically rotated so that
-seg is at index 0.  End remains in the same region just before index 0.
+No new segment is created. New +- segments are added to region and order
+is cycled accordingly. 
 
 Subsequent crossings
 --------------------
@@ -80,15 +80,30 @@ class Regions:
     def clone(self):
         return copy.deepcopy(self)
 
-    def possibilities(self, generator: int) -> list:
+    def seg_possibilities_given_gen(self, generator: int, region_idx=0) -> list:
         """
-        Return all signed segments in the current end-region whose crossing
+        Return all signed segments in region 0 (by default) whose crossing
         would contribute `generator` to the word.
 
-        Returns [] if the word cannot be extended without self-intersection.
+        Returns [] if the word cannot be extended.
         """
-        region = self.regions[0]
+        region = self.regions[region_idx]
         return [seg for seg in region if self.gen[seg] == generator]
+    
+    def gen_possibilities(self, region_idx=0) -> list:
+        """
+        Return all signed generators available for
+        crossing in region 0 (by default).
+        """
+        possible_gens = []
+        for k in range(1, self.n + 1):
+            if self.seg_possibilities_given_gen(-k, region_idx=region_idx):
+                possible_gens.append(-k)
+            if self.seg_possibilities_given_gen(k, region_idx=region_idx):
+                possible_gens.append(k)
+
+        # only unique values
+        return list(set(possible_gens))
 
     def forward(self, seg: int):
         """
@@ -147,11 +162,11 @@ class Regions:
             # -- Case B: pair in different region r' --------------------------
             r_prime = list(self.regions[pair_ri])
 
-            # r splits
+            # current region splits
             r_left  = region[:i] + [seg_sgn * T]
             r_right = region[i:]
 
-            # r' loses b_x and gains -T at front, rotated to start after b_x:
+            # new region r' gets new segment and is cycled
             r_prime_new = [-seg_sgn * T] + r_prime[pair_pos + 1:] + r_prime[:pair_pos + 1]
 
             # New region containing end is new r_prine
@@ -162,15 +177,7 @@ class Regions:
 
     # ------------------------------------------------------------------ debug
 
-    def state(self) -> dict:
-        return {
-            "regions": [list(r) for r in self.regions],
-            "end_region": list(self.regions[self.end_region_idx]),
-            "gen": dict(self.gen),
-            "next_seg": self._next_seg,
-        }
-
-    def __repr__(self) -> str:
+    def state(self) -> str:
         lines = ["Regions("]
         for i, r in enumerate(self.regions):
             marker = "  <- END (path-end is just before index 0)" \
@@ -185,6 +192,7 @@ class RegionManager:
         self.n = n
 
     # ------------------------------------------------
+    # evaluate using DFS (depth first search) all possibilities
     def evaluate(self, word: list[int]) -> bool:
         """
         Return True if any valid branch completes the word.
@@ -193,12 +201,12 @@ class RegionManager:
         return self._dfs(initial, word, 0)
 
     def _dfs(self, regions: Regions, word: list[int], idx: int) -> bool:
-        # If we've consumed the whole word → success
+        # If we've consumed the whole word then success
         if idx == len(word):
             return True
 
         letter = word[idx]
-        options = regions.possibilities(letter)
+        options = regions.seg_possibilities_given_gen(letter)
         print(options)
 
         # Dead branch
@@ -217,7 +225,7 @@ class RegionManager:
         return False
 
     # --------------------------------------------------
-    # handles ± choices during DFS
+    # handles +- choices during DFS
     def evaluate_unsigned(self, word: list[int]) -> bool:
         success, assignment = self._dfs_unsigned(Regions(self.n), word, 0, [])
         
@@ -234,7 +242,7 @@ class RegionManager:
         letter = word[idx]
 
         for signed_letter in (letter, -letter):
-            options = regions.possibilities(signed_letter)
+            options = regions.seg_possibilities_given_gen(signed_letter)
 
             if not options:
                 continue
@@ -279,11 +287,10 @@ class RegionManager:
 
         return False
 
-
-R = Regions(3)
-R.forward(2)
-R.forward(3)
-R.forward(3)
-R.forward(-6)
-R.forward(-2)
-print(R.regions)
+# R = Regions(3)
+# R.forward(2)
+# R.forward(3)
+# R.forward(3)
+# R.forward(-6)
+# R.forward(-2)
+# print(R.regions)
