@@ -2,15 +2,14 @@
 computing_project_gui.py
 
 A tkinter GUI for computing_project_module.py.
-Place this file in the same directory as computing_project_module.py and run it directly.
 
-    python computing_project_gui.py
-
-Two tabs:
-  - Count / Collect  : wraps count_realisable / collect_realisable
+Three tabs:
+  - Find Realisable  : wraps count_realisable / collect_realisable
   - Check Subword    : wraps check_subword
+  - Minimal Invalid  : wraps count_minimal_invalid / collect_minimal_invalid
 
-Requires: Python 3.12+ (for the `type` alias syntax used in the module), tkinter (stdlib).
+This was basically entirely written by Claude. I know enough tkinter to understand it and tweak it,
+but it was much quicker than me trying to remember how it actually works.
 """
 
 import csv
@@ -145,9 +144,13 @@ class App(Tk):
         tab1 = ttk.Frame(nb, padding=(0, 12, 0, 0))
         tab2 = ttk.Frame(nb, padding=(0, 12, 0, 0))
         tab3 = ttk.Frame(nb, padding=(0, 12, 0, 0))
-        nb.add(tab1, text="  Count / Collect  ")
+        nb.add(tab1, text="  Find Realisable  ")
         nb.add(tab2, text="  Check Subword  ")
         nb.add(tab3, text="  Minimal Invalid  ")
+
+        # Shared globals — same BooleanVar referenced by all tabs that need it
+        self._var_mp = BooleanVar(value=cpm.USE_MULTIPROCESSING)
+        self._var_ip = BooleanVar(value=cpm.IGNORE_POWERS)
 
         self._build_tab_count(tab1)
         self._build_tab_check(tab2)
@@ -161,8 +164,6 @@ class App(Tk):
         opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
         opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
 
-        self._var_mp = BooleanVar(value=cpm.USE_MULTIPROCESSING)
-        self._var_ip = BooleanVar(value=cpm.IGNORE_POWERS)
         self._var_po = BooleanVar(value=cpm.PRODUCE_OUTPUT)
 
         ttk.Checkbutton(opt, text="Use Multiprocessing",  variable=self._var_mp).grid(
@@ -282,10 +283,16 @@ class App(Tk):
     # ── Tab 1 callbacks ───────────────────────────────────────────────────────
 
     def _toggle_filename(self) -> None:
-        if self._var_po.get():
+        show = self._var_po.get()
+        if show:
             self._fn_row.grid()
         else:
             self._fn_row.grid_remove()
+        if hasattr(self, "_min_fn_row"):
+            if show:
+                self._min_fn_row.grid()
+            else:
+                self._min_fn_row.grid_remove()
 
     def _browse(self) -> None:
         path = filedialog.asksaveasfilename(
@@ -294,6 +301,14 @@ class App(Tk):
         )
         if path:
             self._fn_var.set(path)
+
+    def _browse_min(self) -> None:
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if path:
+            self._min_fn_var.set(path)
 
     def _run(self) -> None:
         try:
@@ -383,25 +398,26 @@ class App(Tk):
         def _worker() -> None:
             try:
                 t0             = time.perf_counter()
-                result, max_len = cpm.check_subword(rank, subword)
+                result, max_sub = cpm.check_subword(rank, subword)
                 elapsed        = time.perf_counter() - t0
-                self.after(0, _show, result, max_len, elapsed)
+                self.after(0, _show, result, max_sub, elapsed)
             except Exception as exc:
                 self.after(0, _err, exc)
 
-        def _show(result: bool, max_len: int, elapsed: float) -> None:
+        def _show(result: bool, max_sub: list[int], elapsed: float) -> None:
             word_str = ", ".join(str(x) for x in subword)
             if result:
+                signed_str = ", ".join(str(x) for x in max_sub)
                 self._chk_verdict.configure(text="✓  Realisable",     foreground="#66bb6a")
                 self._chk_detail.configure(
-                    text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms"
+                    text=f"rank={rank}    [{signed_str}]    {elapsed*1000:.2f} ms"
                 )
             else:
                 self._chk_verdict.configure(text="✗  Not realisable", foreground="#ef5350")
-                prefix_str = ", ".join(str(x) for x in subword[:max_len])
+                prefix_str = ", ".join(str(x) for x in max_sub)
                 self._chk_detail.configure(
                     text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms\n"
-                         f"longest valid prefix ({max_len}):  [{prefix_str}]"
+                         f"longest valid prefix ({len(max_sub)}):  [{prefix_str}]"
                 )
             self._chk_btn.configure(state="normal")
 
@@ -421,9 +437,22 @@ class App(Tk):
         opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
         opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
 
-        self._min_var_mp = BooleanVar(value=cpm.USE_MULTIPROCESSING)
-        ttk.Checkbutton(opt, text="Use Multiprocessing", variable=self._min_var_mp).grid(
-            row=0, column=0, sticky="w", pady=2)
+        ttk.Checkbutton(opt, text="Use Multiprocessing", variable=self._var_mp).grid(
+            row=0, column=0, sticky="w", padx=(0, 24), pady=2)
+        ttk.Checkbutton(opt, text="Ignore Powers", variable=self._var_ip).grid(
+            row=0, column=1, sticky="w", padx=(0, 24), pady=2)
+        ttk.Checkbutton(opt, text="Produce Output (CSV)", variable=self._var_po,
+                        command=self._toggle_filename).grid(
+            row=0, column=2, sticky="w", pady=2)
+
+        self._min_fn_row = ttk.Frame(opt)
+        self._min_fn_row.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        ttk.Label(self._min_fn_row, text="Output file:").pack(side="left")
+        self._min_fn_var = StringVar(value="out.csv")
+        ttk.Entry(self._min_fn_row, textvariable=self._min_fn_var, width=32).pack(side="left", padx=8)
+        ttk.Button(self._min_fn_row, text="Browse…", command=self._browse_min).pack(side="left")
+        if not self._var_po.get():
+            self._min_fn_row.grid_remove()
 
         # Parameters
         prm = ttk.LabelFrame(root, text="Parameters", padding=(14, 10))
@@ -464,7 +493,8 @@ class App(Tk):
             messagebox.showerror("Input Error", str(exc))
             return
 
-        cpm.USE_MULTIPROCESSING = self._min_var_mp.get()
+        cpm.USE_MULTIPROCESSING = self._var_mp.get()
+        cpm.IGNORE_POWERS       = self._var_ip.get()
 
         self._min_log_clear()
         sep = "─" * 54
@@ -474,26 +504,47 @@ class App(Tk):
         self._min_log("  Running...")
         self._min_btn.configure(state="disabled")
 
+        produce_output = self._var_po.get()
+        filename = self._min_fn_var.get().strip() if produce_output else None
+
         def _worker() -> None:
             try:
-                t0    = time.perf_counter()
-                words = cpm.find_minimal_invalid(rank, length)
+                t0 = time.perf_counter()
+                if produce_output:
+                    count = cpm.collect_minimal_invalid(rank, length, filename)
+                else:
+                    count = cpm.count_minimal_invalid(rank, length)
                 elapsed = time.perf_counter() - t0
-                self.after(0, _show, words, elapsed)
+                self.after(0, _show, count, elapsed)
             except Exception as exc:
                 self.after(0, _err, exc)
 
-        def _show(words: list, elapsed: float) -> None:
-            self._min_log(f"  Found           : {len(words):,} minimal invalid words")
+        def _show(count: int, elapsed: float) -> None:
+            self._min_log(f"  Found           : {count:,} minimal invalid words")
             self._min_log(f"  Time            : {elapsed:.3f}s")
+            if filename:
+                self._min_log(f"  Written to      : {filename}")
             self._min_log(sep)
             self._min_btn.configure(state="normal")
-            if words:
+            if produce_output and count > 0:
+                try:
+                    with open(filename, newline="") as f:
+                        rows = [row for row in csv.reader(f) if row]
+                except OSError as exc:
+                    messagebox.showerror("Cannot open file", str(exc))
+                    return
+                total_rows = len(rows)
+                truncated  = total_rows > self._MAX_DISPLAY_ROWS
+                status = (
+                    f"{total_rows:,} minimal invalid words  ·  rank={rank}, length={length}"
+                    + (f"  ·  showing first {self._MAX_DISPLAY_ROWS:,}" if truncated else "")
+                    + f"  ·  {filename}"
+                )
                 self._open_words_window(
-                    words=[[str(x) for x in w] for w in words],
+                    words=rows[:self._MAX_DISPLAY_ROWS],
                     title=f"Minimal invalid  —  rank={rank}, length={length}",
                     header=f"Minimal invalid words   (rank={rank}, length={length})",
-                    status=f"{len(words):,} minimal invalid words  ·  rank={rank}, length={length}",
+                    status=status,
                 )
 
         def _err(exc: Exception) -> None:
