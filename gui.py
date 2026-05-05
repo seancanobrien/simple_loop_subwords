@@ -383,14 +383,14 @@ class App(Tk):
         def _worker() -> None:
             try:
                 t0             = time.perf_counter()
-                result, max_sub = cpm.check_subword(rank, subword)
+                result, max_len = cpm.check_subword(rank, subword)
                 elapsed        = time.perf_counter() - t0
-                self.after(0, _show, result, max_sub, elapsed)
+                self.after(0, _show, result, max_len, elapsed)
             except Exception as exc:
                 self.after(0, _err, exc)
 
-        def _show(result: bool, max_sub: list[int], elapsed: float) -> None:
-            word_str = ", ".join(str(x) for x in max_sub)
+        def _show(result: bool, max_len: int, elapsed: float) -> None:
+            word_str = ", ".join(str(x) for x in subword)
             if result:
                 self._chk_verdict.configure(text="✓  Realisable",     foreground="#66bb6a")
                 self._chk_detail.configure(
@@ -398,10 +398,10 @@ class App(Tk):
                 )
             else:
                 self._chk_verdict.configure(text="✗  Not realisable", foreground="#ef5350")
-                prefix_str = ", ".join(str(x) for x in max_sub)
+                prefix_str = ", ".join(str(x) for x in subword[:max_len])
                 self._chk_detail.configure(
                     text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms\n"
-                         f"longest valid prefix ({len(max_sub)}):  [{prefix_str}]"
+                         f"longest valid prefix ({max_len}):  [{prefix_str}]"
                 )
             self._chk_btn.configure(state="normal")
 
@@ -417,9 +417,17 @@ class App(Tk):
 
     def _build_tab_minimal(self, root: ttk.Frame) -> None:
 
+        # Options
+        opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
+        opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+
+        self._min_var_mp = BooleanVar(value=cpm.USE_MULTIPROCESSING)
+        ttk.Checkbutton(opt, text="Use Multiprocessing", variable=self._min_var_mp).grid(
+            row=0, column=0, sticky="w", pady=2)
+
         # Parameters
         prm = ttk.LabelFrame(root, text="Parameters", padding=(14, 10))
-        prm.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 16))
+        prm.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 16))
 
         ttk.Label(prm, text="Rank:").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=(6, 0))
         self._min_rank_var = StringVar(value="5")
@@ -435,11 +443,11 @@ class App(Tk):
 
         # Run button
         self._min_btn = ttk.Button(root, text="Find", style="Accent.TButton", command=self._run_minimal)
-        self._min_btn.grid(row=1, column=0, columnspan=2, pady=(0, 16))
+        self._min_btn.grid(row=2, column=0, columnspan=2, pady=(0, 16))
 
         # Output log
         out = ttk.LabelFrame(root, text="Output", padding=(14, 10))
-        out.grid(row=2, column=0, columnspan=2, sticky="nsew")
+        out.grid(row=3, column=0, columnspan=2, sticky="nsew")
 
         self._min_log_box = scrolledtext.ScrolledText(
             out, width=62, height=12, font=("Courier New", 10),
@@ -455,6 +463,8 @@ class App(Tk):
         except ValueError as exc:
             messagebox.showerror("Input Error", str(exc))
             return
+
+        cpm.USE_MULTIPROCESSING = self._min_var_mp.get()
 
         self._min_log_clear()
         sep = "─" * 54
