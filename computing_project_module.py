@@ -38,6 +38,10 @@ type State = tuple[int, tuple[tuple[int, ...], ...], tuple[int, ...]]
 def _validate_word(word: list[int], rank: int) -> None:
     """
     Validates that a word is a valid reduced word of given rank.
+
+    Raises:
+            TypeError: If the word contains something other than a non-zero integer
+            ValueError: If there is another formatting issue.
     """
 
     if not isinstance(word, list) or not word:
@@ -290,14 +294,14 @@ def _advance_states(states: set[State], letter: int) -> set[State]:
     return next_states
 
 
-def _trie_subtree(args: tuple) -> tuple[int, int]:
+def _trie_subtree_count(args: tuple) -> tuple[int, int]:
     """
     Count (true_words, total_words) in the subtree of all reduced words of
     the given rank and length that start with a given prefix.
 
-    Uses a stack (NOT algebraic) for depth-first search reasons.
+    Uses a stack (NOT algebraic) for depth-first search.
     Stack entries: (depth, letter, parent_states)
-      depth         -- current word length (2..length)
+      depth         -- current word length
       letter        -- the letter being appended at this depth
       parent_states -- set[State] valid after the prefix up to depth-1
 
@@ -326,11 +330,8 @@ def _trie_subtree(args: tuple) -> tuple[int, int]:
 
     # Seed the stack (next letters).
     # Push in reverse order so we process in forward alphabet order because I like that more.
-    stack = [
-        (start_depth, sl, start_states)
-        for sl in reversed(alphabet)
-        if sl != -start_letter and (sl != start_letter or not IGNORE_POWERS)
-    ]
+    stack = [(start_depth, sl, start_states) for sl in reversed(alphabet)
+        if sl != -start_letter and (sl != start_letter or not IGNORE_POWERS)]
 
     while stack:
         depth, letter, parent_states = stack.pop()
@@ -408,15 +409,14 @@ def _check_unsigned_subword(rank: int, subword: list[int]) -> tuple[bool, list[i
     Check whether any signing of an unsigned subword is realisable, returning
     both the result and the longest realisable signed prefix found.
 
-    Performs a DFS over the 2^len(subword) possible sign assignments, using
-    the same trie-pruning strategy as check_subword: if _advance_states returns
-    empty for some (prefix, sign choice), the entire subtree below that node is
-    discarded.  Respects the IGNORE_POWERS global the same way check_subword does.
+    Performs a depth-first search over the 2^len(subword) possible sign assignments, using
+    the same trie-pruning strategy as check_subword.
 
-    Args:
-        rank:    A positive integer, the number of punctures.
-        subword: A non-empty list of *positive* integers, each with value <= rank,
-                 representing the unsigned letters of the word.
+    Stack entries: (pos, last_signed_letter, states, prefix)
+       pos                -- index of the next unsigned letter to sign (>= 1)
+       last_signed_letter -- the signed letter chosen at pos - 1
+       states             -- set[State] reachable after processing subword[:pos]
+       prefix             -- tuple of signed letters chosen so far (length == pos)
 
     Returns:
         (True,  signed_word)   if some signing of subword is realisable,
@@ -425,26 +425,13 @@ def _check_unsigned_subword(rank: int, subword: list[int]) -> tuple[bool, list[i
                                signed prefix w[:k] for which some signing of
                                subword[:k] is realisable.  Always has length >= 1
                                since any single letter is realisable.
-
-    Raises:
-        TypeError:  If rank is not a positive integer, or any entry of subword
-                    is not a positive integer.
-        ValueError: If subword is empty, or any entry exceeds rank.
     """
 
     # Single-letter words are always realisable.
     if len(subword) == 1:
         return True, [subword[0]]
 
-    # Stack entries: (pos, last_signed_letter, states, prefix)
-    #   pos                -- index of the *next* unsigned letter to sign (>= 1)
-    #   last_signed_letter -- the signed letter chosen at pos - 1
-    #   states             -- set[State] reachable after processing subword[:pos]
-    #   prefix             -- tuple of signed letters chosen so far (length == pos)
-    #
-    # Invariant: states is always non-empty when an entry is pushed, so
-    # prefix is always a valid realisable signed subword when popped.
-    stack: list[tuple[int, int, set, tuple]] = []
+    stack = []
     for sign in (1, -1):
         signed_first = sign * subword[0]
         stack.append((1, signed_first, {_make_initial_state(rank, signed_first)}, (signed_first,)))
@@ -454,8 +441,8 @@ def _check_unsigned_subword(rank: int, subword: list[int]) -> tuple[bool, list[i
     while stack:
         pos, last_letter, states, prefix = stack.pop()
 
-        # Every popped entry has non-empty states, so prefix is a valid reachable
-        # signed subword. Update best_prefix if this is the deepest we've reached.
+        # Every popped entry has non-empty states, so prefix is a valid reachable signed subword.
+        # Update best_prefix if this is the deepest we've reached.
         if len(prefix) > len(best_prefix):
             best_prefix = prefix
 
@@ -486,22 +473,12 @@ def _check_signed_subword(rank: int, subword: list[int]) -> tuple[bool, list[int
     """
     Check whether subword is realisable.
 
-    Args:
-        rank:    A positive integer, the number of punctures.
-        subword: A non-empty reduced list of non-zero integers, each with
-                 abs value <= rank.
-
     Returns:
         True if possible_arrangements is non-empty after processing all of
         subword, False if it becomes empty at any point.
         Then the length of the largest valid prefix.
-
-    Raises:
-        TypeError:  If rank is not a positive integer, or subword is not a
-                    list of non-zero integers.
-        ValueError: If subword is empty, any entry has abs value > rank,
-                    or subword is not reduced.
     """
+
     states = {_make_initial_state(rank, subword[0])}
     for s in range(1,len(subword)):
         states = _advance_states(states, subword[s])
@@ -513,8 +490,10 @@ def _check_signed_subword(rank: int, subword: list[int]) -> tuple[bool, list[int
 def _find_minimal_invalid_subtree_from_second(args: tuple) -> list[tuple[int, ...]]:
     """
     Find minimal invalid words starting with 1 then a given second letter.
-    args: (rank, max_length, second_letter, initial_suffix_state_sets)
-        initial_suffix_state_sets: the suffix-state list after reading just (1,)
+
+    Args:
+        args: a tuple (rank, max_length, second_letter, initial_suffix_state_sets)
+            initial_suffix_state_sets: the suffix-state list after reading just (1,)
     """
     rank, max_length, second_letter, parent_ss = args
     alphabet = list(range(-rank, 0)) + list(range(1, rank + 1))
@@ -525,10 +504,8 @@ def _find_minimal_invalid_subtree_from_second(args: tuple) -> list[tuple[int, ..
     for i, ss in enumerate(parent_ss):
         advanced = _advance_states(ss, second_letter)
         if i > 0 and not advanced:
-            return []   # proper subword (1,) is always valid, so this shouldn't fire;
-                        # but guard anyway
+            return []   # This shouldn't happen but anyways
         new_ss.append(advanced)
-    # Append fresh state-set for the single-letter suffix (second_letter,)
     new_ss.append({_make_initial_state(rank, second_letter)})
     word = (1, second_letter)
 
@@ -539,7 +516,7 @@ def _find_minimal_invalid_subtree_from_second(args: tuple) -> list[tuple[int, ..
     if len(word) >= max_length:
         return []
 
-    # Now run the standard DFS from this starting point
+    # Now run the standard search from this starting point
     stack = [(word, new_ss)]
     while stack:
         word, suffix_state_sets = stack.pop()
@@ -626,9 +603,9 @@ def count_realisable(rank: int, length: int, prefix: list[int] | None = None) ->
 
     if USE_MULTIPROCESSING:
         with Pool() as pool:
-            results = pool.map(_trie_subtree, tasks)
+            results = pool.map(_trie_subtree_count, tasks)
     else:
-        results = [_trie_subtree(t) for t in tasks]
+        results = [_trie_subtree_count(t) for t in tasks]
 
     return sum(r[0] for r in results), sum(r[1] for r in results)
 
@@ -713,28 +690,31 @@ def check_subword(rank: int, subword: list[int]) -> tuple[bool, list[int]]:
     else:
         return _check_signed_subword(rank, subword)
 
-def find_minimal_invalid(rank: int, max_length: int) -> list[tuple[int, ...]]:
+def count_minimal_invalid(rank: int, max_length: int) -> int:
     """
-    Find all minimal invalid words of given rank with length <= max_length,
+    Count all minimal invalid words of given rank with length <= max_length,
     up to cyclic permutation and reflection (i.e. canonical representatives
     starting with 1 only).
+
+    Raises:
+        TypeError if rank or max_length aren't positive integers.
+
+    Returns:
+        The number of minimal invalid words found.
     """
+
     if not isinstance(rank, int) or rank < 1:
         raise TypeError(f"rank must be a positive integer, got {rank!r}")
     if not isinstance(max_length, int) or max_length < 1:
         raise TypeError(f"max_length must be a positive integer, got {max_length!r}")
 
+    if max_length == 1:
+        return 0
+
     alphabet     = list(range(-rank, 0)) + list(range(1, rank + 1))
     initial_ss   = [{_make_initial_state(rank, 1)}]
-
-    # Handle the length-1 case: (1,) itself is trivially valid, nothing to do.
-    if max_length == 1:
-        return []
-
-    # Split on the second letter for multiprocessing, exactly as count_realisable does.
-    # (Second letter can be anything except -1, i.e. anything that keeps the word reduced.)
     valid_second = [l for l in alphabet if l != -1 and (not IGNORE_POWERS or l != 1)]
-    tasks = [(rank, max_length, l, initial_ss) for l in valid_second]
+    tasks        = [(rank, max_length, l, initial_ss) for l in valid_second]
 
     if USE_MULTIPROCESSING:
         with Pool() as pool:
@@ -742,22 +722,56 @@ def find_minimal_invalid(rank: int, max_length: int) -> list[tuple[int, ...]]:
     else:
         results = [_find_minimal_invalid_subtree_from_second(t) for t in tasks]
 
-    all_words = [word for sublist in results for word in sublist]
-    return sorted(all_words, key=lambda w: (len(w), w))
+    return sum(len(sublist) for sublist in results)
+
+
+def collect_minimal_invalid(rank: int, max_length: int, filename: str) -> int:
+    """
+    Find all minimal invalid words of given rank with length <= max_length,
+    up to cyclic permutation and reflection (i.e. canonical representatives
+    starting with 1 only). Then write them to a CSV file (one word per row),
+    and return the count.
+
+    Raises:
+        TypeError if rank or max_length aren't positive integers.
+
+
+    Returns:
+        The number of words written.
+    """
+
+    if not isinstance(rank, int) or rank < 1:
+        raise TypeError(f"rank must be a positive integer, got {rank!r}")
+    if not isinstance(max_length, int) or max_length < 1:
+        raise TypeError(f"max_length must be a positive integer, got {max_length!r}")
+
+    if max_length == 1:
+        open(filename, 'w').close()
+        return 0
+
+    alphabet     = list(range(-rank, 0)) + list(range(1, rank + 1))
+    initial_ss   = [{_make_initial_state(rank, 1)}]
+    valid_second = [l for l in alphabet if l != -1 and (not IGNORE_POWERS or l != 1)]
+    tasks        = [(rank, max_length, l, initial_ss) for l in valid_second]
+
+    if USE_MULTIPROCESSING:
+        with Pool() as pool:
+            results = pool.map(_find_minimal_invalid_subtree_from_second, tasks)
+    else:
+        results = [_find_minimal_invalid_subtree_from_second(t) for t in tasks]
+
+    all_words = sorted((word for sublist in results for word in sublist),
+                       key=lambda w: (len(w), w),)
+    with open(filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        for word in all_words:
+            writer.writerow(word)
+    return len(all_words)
 
 
 def load_alicja_sequences(filepath: str) -> list[list[int]]:
     """
-    Load a .txt file containing '*'-separated letter sequences, one per line,
-    each terminated by a semicolon. Letters may be followed by '^(-1)' to
-    indicate a negative integer. Duplicate sublists are removed, preserving
-    first-occurrence order.
-
-    Args:
-        filepath: Path to the .txt file.
-
-    Returns:
-        A list of unique lists of integers, one per non-empty line.
+    Reads a file formatted like Alicja's, and returns a list in the expected format.
 
     Raises:
         FileNotFoundError: If the file does not exist.
@@ -833,4 +847,3 @@ if __name__ == "__main__":
     print(f"  Proportion True : 10^{log(true_count / expected):.3f}")
     print(f"  Total time      : {elapsed:.3f}s")
     print("═" * 60)
-
