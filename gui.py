@@ -26,7 +26,7 @@ from tkinter import ttk
 
 # ── locate the module ─────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import computing_project_module as cpm
+import searching as word_searcher
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -144,17 +144,19 @@ class App(Tk):
         tab1 = ttk.Frame(nb, padding=(0, 12, 0, 0))
         tab2 = ttk.Frame(nb, padding=(0, 12, 0, 0))
         tab3 = ttk.Frame(nb, padding=(0, 12, 0, 0))
+        tab4 = ttk.Frame(nb, padding=(0, 12, 0, 0))
         nb.add(tab1, text="  Find Realisable  ")
         nb.add(tab2, text="  Check Subword  ")
-        nb.add(tab3, text="  Minimal Invalid  ")
+        nb.add(tab3, text="  Check Unsigned Subword  ")
+        nb.add(tab4, text="  Minimal Invalid  ")
 
-        # Shared globals — same BooleanVar referenced by all tabs that need it
-        self._var_mp = BooleanVar(value=cpm.USE_MULTIPROCESSING)
-        self._var_ip = BooleanVar(value=cpm.IGNORE_POWERS)
+        # Shared global — same BooleanVar referenced by all tabs that need it
+        self._var_ip = BooleanVar(value=word_searcher.IGNORE_POWERS)
 
         self._build_tab_count(tab1)
         self._build_tab_check(tab2)
-        self._build_tab_minimal(tab3)
+        self._build_tab_check_unsigned(tab3)
+        self._build_tab_minimal(tab4)
 
     # ── Tab 1: Count / Collect ────────────────────────────────────────────────
 
@@ -164,18 +166,16 @@ class App(Tk):
         opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
         opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
 
-        self._var_po = BooleanVar(value=cpm.PRODUCE_OUTPUT)
+        self._var_po = BooleanVar(value=word_searcher.PRODUCE_OUTPUT)
 
-        ttk.Checkbutton(opt, text="Use Multiprocessing",  variable=self._var_mp).grid(
-            row=0, column=0, sticky="w", padx=(0, 24), pady=2)
         ttk.Checkbutton(opt, text="Ignore Powers",        variable=self._var_ip).grid(
-            row=0, column=1, sticky="w", padx=(0, 24), pady=2)
+            row=0, column=0, sticky="w", padx=(0, 24), pady=2)
         ttk.Checkbutton(opt, text="Produce Output (CSV)", variable=self._var_po,
                         command=self._toggle_filename).grid(
-            row=0, column=2, sticky="w", pady=2)
+            row=0, column=1, sticky="w", pady=2)
 
         self._fn_row = ttk.Frame(opt)
-        self._fn_row.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        self._fn_row.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
         ttk.Label(self._fn_row, text="Output file:").pack(side="left")
         self._fn_var = StringVar(value="out.csv")
         ttk.Entry(self._fn_row, textvariable=self._fn_var, width=32).pack(side="left", padx=8)
@@ -229,13 +229,8 @@ class App(Tk):
         opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
         opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
 
-        self._chk_var_ip = BooleanVar(value=cpm.IGNORE_POWERS)
-        ttk.Checkbutton(opt, text="Ignore Powers", variable=self._chk_var_ip).grid(
-            row=0, column=0, sticky="w", padx=(0, 24), pady=2)
-
-        self._chk_var_is = BooleanVar(value=cpm.IGNORE_SIGNS)
-        ttk.Checkbutton(opt, text="Ignore Signs", variable=self._chk_var_is).grid(
-            row=0, column=1, sticky="w", pady=2)
+        ttk.Checkbutton(opt, text="Ignore Powers", variable=self._var_ip).grid(
+            row=0, column=0, sticky="w", pady=2)
 
         # Parameters
         prm = ttk.LabelFrame(root, text="Parameters", padding=(14, 10))
@@ -319,9 +314,8 @@ class App(Tk):
             messagebox.showerror("Input Error", str(exc))
             return
 
-        cpm.USE_MULTIPROCESSING = self._var_mp.get()
-        cpm.IGNORE_POWERS       = self._var_ip.get()
-        cpm.PRODUCE_OUTPUT      = self._var_po.get()
+        word_searcher.IGNORE_POWERS  = self._var_ip.get()
+        word_searcher.PRODUCE_OUTPUT = self._var_po.get()
 
         produce_output = self._var_po.get()
         filename = self._fn_var.get().strip() if produce_output else None
@@ -331,8 +325,7 @@ class App(Tk):
         self._log(f"  Rank    = {rank}")
         self._log(f"  Length  = {length}")
         self._log(f"  Prefix  = {prefix}")
-        self._log(f"  MP      = {'ON' if cpm.USE_MULTIPROCESSING else 'OFF'}")
-        self._log(f"  Powers  = {'ignored' if cpm.IGNORE_POWERS else 'allowed'}")
+        self._log(f"  Powers  = {'ignored' if word_searcher.IGNORE_POWERS else 'allowed'}")
         self._log(f"  Output  = {'-> ' + filename if produce_output else 'count only'}")
         self._log(sep)
         self._log("  Running...")
@@ -342,12 +335,12 @@ class App(Tk):
             try:
                 t0 = time.perf_counter()
                 if produce_output:
-                    true_count  = cpm.collect_realisable(rank, length, filename, prefix)
+                    true_count  = word_searcher.collect_realisable(rank, length, filename, prefix)
                     elapsed     = time.perf_counter() - t0
-                    bf          = (rank * 2 - 2) if cpm.IGNORE_POWERS else (rank * 2 - 1)
+                    bf          = (rank * 2 - 2) if word_searcher.IGNORE_POWERS else (rank * 2 - 1)
                     total_count = bf ** (length - len(prefix))
                 else:
-                    true_count, total_count = cpm.count_realisable(rank, length, prefix)
+                    true_count, total_count = word_searcher.count_realisable(rank, length, prefix)
                     elapsed = time.perf_counter() - t0
                 self.after(0, _show, true_count, total_count, elapsed)
             except Exception as exc:
@@ -388,8 +381,7 @@ class App(Tk):
             messagebox.showerror("Input Error", str(exc))
             return
 
-        cpm.IGNORE_POWERS = self._chk_var_ip.get()
-        cpm.IGNORE_SIGNS  = self._chk_var_is.get()
+        word_searcher.IGNORE_POWERS = self._var_ip.get()
 
         self._chk_verdict.configure(text="...", foreground=self._fgdim)
         self._chk_detail.configure(text="")
@@ -397,27 +389,24 @@ class App(Tk):
 
         def _worker() -> None:
             try:
-                t0             = time.perf_counter()
-                result, max_sub = cpm.check_subword(rank, subword)
-                elapsed        = time.perf_counter() - t0
-                self.after(0, _show, result, max_sub, elapsed)
+                t0      = time.perf_counter()
+                result  = word_searcher.evaluate(rank, subword)
+                elapsed = time.perf_counter() - t0
+                self.after(0, _show, result, elapsed)
             except Exception as exc:
                 self.after(0, _err, exc)
 
-        def _show(result: bool, max_sub: list[int], elapsed: float) -> None:
+        def _show(result: bool, elapsed: float) -> None:
             word_str = ", ".join(str(x) for x in subword)
             if result:
-                signed_str = ", ".join(str(x) for x in max_sub)
                 self._chk_verdict.configure(text="✓  Realisable",     foreground="#66bb6a")
                 self._chk_detail.configure(
-                    text=f"rank={rank}    [{signed_str}]    {elapsed*1000:.2f} ms"
+                    text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms"
                 )
             else:
                 self._chk_verdict.configure(text="✗  Not realisable", foreground="#ef5350")
-                prefix_str = ", ".join(str(x) for x in max_sub)
                 self._chk_detail.configure(
-                    text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms\n"
-                         f"longest valid prefix ({len(max_sub)}):  [{prefix_str}]"
+                    text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms"
                 )
             self._chk_btn.configure(state="normal")
 
@@ -428,8 +417,118 @@ class App(Tk):
             messagebox.showerror("Runtime Error", str(exc))
 
         threading.Thread(target=_worker, daemon=True).start()
+    
+    # ── Tab 4: Check Unsigned Subword ────────────────────────────────────────
 
-    # ── Tab 3: Minimal Invalid ───────────────────────────────────────────────
+    def _build_tab_check_unsigned(self, root: ttk.Frame) -> None:
+
+        # Options
+        opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
+        opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
+
+        ttk.Checkbutton(opt, text="Ignore Powers", variable=self._var_ip).grid(
+            row=0, column=0, sticky="w", pady=2)
+
+        # Parameters
+        prm = ttk.LabelFrame(root, text="Parameters", padding=(14, 10))
+        prm.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 16))
+
+        ttk.Label(prm, text="Rank:").grid(row=0, column=0, sticky="e", padx=(0, 10), pady=(6, 0))
+        self._uchk_rank_var = StringVar(value="5")
+        ttk.Entry(prm, textvariable=self._uchk_rank_var, width=8).grid(row=0, column=1, sticky="w", pady=(6, 0))
+        ttk.Label(prm, text="Positive integer  —  number of punctures", style="Dim.TLabel").grid(
+            row=1, column=1, sticky="w", pady=(0, 2))
+
+        ttk.Label(prm, text="Subword:").grid(row=2, column=0, sticky="e", padx=(0, 10), pady=(6, 0))
+        self._uchk_subword_var = StringVar(value="1, 2, 1")
+        ttk.Entry(prm, textvariable=self._uchk_subword_var, width=40).grid(row=2, column=1, sticky="w", pady=(6, 0))
+        ttk.Label(prm, text="Comma-separated positive integers  —  e.g.  1, 2, 1", style="Dim.TLabel").grid(
+            row=3, column=1, sticky="w", pady=(0, 2))
+
+        # Check button
+        self._uchk_btn = ttk.Button(root, text="Check", style="Accent.TButton", command=self._run_check_unsigned)
+        self._uchk_btn.grid(row=2, column=0, columnspan=2, pady=(0, 16))
+
+        # Result panel
+        res = ttk.LabelFrame(root, text="Result", padding=(14, 14))
+        res.grid(row=3, column=0, columnspan=2, sticky="ew")
+        res.columnconfigure(0, weight=1)
+
+        self._uchk_verdict = Label(
+            res, text="—",
+            font=("Georgia", 22, "bold"),
+            background=self._bg, foreground=self._fgdim,
+            anchor="center",
+        )
+        self._uchk_verdict.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+
+        self._uchk_detail = Label(
+            res, text="",
+            font=("Courier New", 10),
+            background=self._bg, foreground=self._fgdim,
+            anchor="center",
+        )
+        self._uchk_detail.grid(row=1, column=0, sticky="ew")
+
+    def _run_check_unsigned(self) -> None:
+        try:
+            rank    = int(self._uchk_rank_var.get().strip())
+            subword = _parse_ints(self._uchk_subword_var.get(), "subword")
+        except ValueError as exc:
+            messagebox.showerror("Input Error", str(exc))
+            return
+
+        word_searcher.IGNORE_POWERS = self._var_ip.get()
+
+        self._uchk_verdict.configure(text="...", foreground=self._fgdim)
+        self._uchk_detail.configure(text="")
+        self._uchk_btn.configure(state="disabled")
+
+        def _worker() -> None:
+            try:
+                t0      = time.perf_counter()
+                result  = word_searcher.valid_assignment_of_signs(rank, subword)
+                elapsed = time.perf_counter() - t0
+                self.after(0, _show, result, elapsed)
+            except Exception as exc:
+                self.after(0, _err, exc)
+
+        def _show(assignment, elapsed: float) -> None:
+            word_str = ", ".join(str(x) for x in subword)
+            if assignment is not None:
+                signed_str = ", ".join(str(x) for x in assignment)
+                self._uchk_verdict.configure(text="✓  Realisable", foreground="#66bb6a")
+                self._uchk_detail.configure(
+                    text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms\n"
+                         f"signed:  [{signed_str}]"
+                )
+            else:
+                self._uchk_verdict.configure(text="✗  Not realisable", foreground="#ef5350")
+                self._uchk_detail.configure(
+                    text=f"rank={rank}    [{word_str}]    {elapsed*1000:.2f} ms"
+                )
+            self._uchk_btn.configure(state="normal")
+
+        def _err(exc: Exception) -> None:
+            self._uchk_verdict.configure(text="Error", foreground="#ef5350")
+            self._uchk_detail.configure(text=str(exc))
+            self._uchk_btn.configure(state="normal")
+            messagebox.showerror("Runtime Error", str(exc))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _min_log(self, text: str) -> None:
+        self._min_log_box.configure(state="normal")
+        self._min_log_box.insert("end", text + "\n")
+        self._min_log_box.see("end")
+        self._min_log_box.configure(state="disabled")
+
+    def _min_log_clear(self) -> None:
+        self._min_log_box.configure(state="normal")
+        self._min_log_box.delete("1.0", "end")
+        self._min_log_box.configure(state="disabled")
+
+    # ── Tab 4: Minimal Invalid ───────────────────────────────────────────────
 
     def _build_tab_minimal(self, root: ttk.Frame) -> None:
 
@@ -437,16 +536,14 @@ class App(Tk):
         opt = ttk.LabelFrame(root, text="Options", padding=(14, 10))
         opt.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
 
-        ttk.Checkbutton(opt, text="Use Multiprocessing", variable=self._var_mp).grid(
-            row=0, column=0, sticky="w", padx=(0, 24), pady=2)
         ttk.Checkbutton(opt, text="Ignore Powers", variable=self._var_ip).grid(
-            row=0, column=1, sticky="w", padx=(0, 24), pady=2)
+            row=0, column=0, sticky="w", padx=(0, 24), pady=2)
         ttk.Checkbutton(opt, text="Produce Output (CSV)", variable=self._var_po,
                         command=self._toggle_filename).grid(
-            row=0, column=2, sticky="w", pady=2)
+            row=0, column=1, sticky="w", pady=2)
 
         self._min_fn_row = ttk.Frame(opt)
-        self._min_fn_row.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        self._min_fn_row.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
         ttk.Label(self._min_fn_row, text="Output file:").pack(side="left")
         self._min_fn_var = StringVar(value="out.csv")
         ttk.Entry(self._min_fn_row, textvariable=self._min_fn_var, width=32).pack(side="left", padx=8)
@@ -493,8 +590,7 @@ class App(Tk):
             messagebox.showerror("Input Error", str(exc))
             return
 
-        cpm.USE_MULTIPROCESSING = self._var_mp.get()
-        cpm.IGNORE_POWERS       = self._var_ip.get()
+        word_searcher.IGNORE_POWERS = self._var_ip.get()
 
         self._min_log_clear()
         sep = "─" * 54
@@ -511,9 +607,9 @@ class App(Tk):
             try:
                 t0 = time.perf_counter()
                 if produce_output:
-                    count = cpm.collect_minimal_invalid(rank, length, filename)
+                    count = word_searcher.collect_minimal_invalid(rank, length, filename)
                 else:
-                    count = cpm.count_minimal_invalid(rank, length)
+                    count = word_searcher.count_minimal_invalid(rank, length)
                 elapsed = time.perf_counter() - t0
                 self.after(0, _show, count, elapsed)
             except Exception as exc:
@@ -555,16 +651,6 @@ class App(Tk):
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    def _min_log(self, text: str) -> None:
-        self._min_log_box.configure(state="normal")
-        self._min_log_box.insert("end", text + "\n")
-        self._min_log_box.see("end")
-        self._min_log_box.configure(state="disabled")
-
-    def _min_log_clear(self) -> None:
-        self._min_log_box.configure(state="normal")
-        self._min_log_box.delete("1.0", "end")
-        self._min_log_box.configure(state="disabled")
 
     # ── results window ────────────────────────────────────────────────────────
 
