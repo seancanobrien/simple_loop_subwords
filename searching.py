@@ -25,26 +25,26 @@ def _validate_word(word: list[int], rank: int) -> None:
             raise ValueError(f"word has repeated letter at positions {i}, {i + 1}")
 
 # ------------------------------------------------
+# Advance a set of states according to next letter
+# For doing breadth first search.
+# Pruning is automatic
+# ------------------------------------------------
+def _advance(states: set, letter: int) -> set:
+    """Advance a set of states by one letter; returns all reachable next states."""
+    return {forward(s, seg) for s in states for seg in seg_possibilities_given_gen(s, letter)}
+
+# ------------------------------------------------
 # evaluate (signed word)
 # ------------------------------------------------
 
 def evaluate(n: int, word: list[int]) -> bool:
-        _validate_word(word, n)
-        initial = make_state(n)
-        return _dfs(initial, word, 0)
-
-def _dfs(state, word: list[int], idx: int) -> bool:
-        if idx == len(word):
-            return True
-        letter = word[idx]
-        options = seg_possibilities_given_gen(state, letter)
-        if not options:
+    _validate_word(word, n)
+    states = {make_state(n)}
+    for letter in word:
+        states = _advance(states, letter)
+        if not states:
             return False
-        for seg in options:
-            new_state = forward(state, seg)
-            if _dfs(new_state, word, idx + 1):
-                return True
-        return False
+    return True
 
 # ------------------------------------------------
 # evaluate_unsigned
@@ -52,25 +52,18 @@ def _dfs(state, word: list[int], idx: int) -> bool:
 
 def valid_assignment_of_signs(n: int, word: list[int]) -> list[int] | None:
     _validate_word(word, n)
-    success, assignment = _dfs_unsigned(make_state(n), word, 0, [])
-    return assignment if success else None
-
-def _dfs_unsigned(state, word: list[int], idx: int, path: list[int]):
-    if idx == len(word):
-        return True, path
-    letter = word[idx]
-    for signed_letter in (letter, -letter):
-        options = seg_possibilities_given_gen(state, signed_letter)
-        if not options:
-            continue
-        for seg in options:
-            new_state = forward(state, seg)
-            success, result_path = _dfs_unsigned(
-                new_state, word, idx + 1, path + [signed_letter]
-            )
-            if success:
-                return True, result_path
-    return False, None
+    frontier = [({make_state(n)}, [])]
+    for letter in word:
+        next_frontier = []
+        for states, path in frontier:
+            for signed_letter in (letter, -letter):
+                next_states = _advance(states, signed_letter)
+                if next_states:
+                    next_frontier.append((next_states, path + [signed_letter]))
+        if not next_frontier:
+            return None
+        frontier = next_frontier
+    return frontier[0][1] if frontier else None
 
 # ------------------------------------------------
 # evaluate_all_perms_and_signs
@@ -82,10 +75,8 @@ def valid_permutation_and_assignment_of_signs(n: int, word: list[int]) -> list[i
     for perm in itertools.permutations(symbols):
         mapping = dict(zip(symbols, perm))
         relabelled = [mapping[x] for x in word]
-        success, assignment = _dfs_unsigned(
-            make_state(n), relabelled, 0, []
-        )
-        if success:
+        assignment = valid_assignment_of_signs(n, relabelled)
+        if assignment is not None:
             return assignment
     return None
 
@@ -102,13 +93,6 @@ USE_MULTIPROCESSING = True  # Do we use multiprocessing for finding all valid/in
 IGNORE_POWERS = True        # Do we enforce square-free?
 PRODUCE_OUTPUT = True       # Do we save the output to a csv file?
 IGNORE_SIGNS = False        # Do we check unsigned words?
-
-# Advance a set of states according to next letter
-# pruning is automatic
-def _advance(states: set, letter: int) -> set:
-    """Advance a set of states by one letter; returns all reachable next states."""
-    return {forward(s, seg) for s in states for seg in seg_possibilities_given_gen(s, letter)}
-
 
 def _realisable_words(states: set, prefix: tuple, length: int, rank: int):
     """Yield all realisable words of given length extending prefix from states."""
