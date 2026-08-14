@@ -9,11 +9,18 @@ Companion material: the accompanying paper (the written maths, with the figures 
 analysis below refers to) and `README.md` (usage). This document is the bridge between them
 and the source.
 
-Everything runs through `main.py` from the repository root, with no third-party dependencies:
+There are no third-party dependencies. `main.py` loads everything into one namespace for an
+interactive session, run from the repository root:
 
 ```bash
-python3 main.py demo        # narrated walk-through of all three modules
-python3 main.py test        # both test suites
+python3 -i main.py
+```
+
+```python
+>>> evaluate(5, [1, 2, -1])
+True
+>>> demo()          # narrated walk-through of all three modules
+>>> run_tests()     # both test suites
 ```
 
 If you are reading the code rather than running it, the order that makes sense is
@@ -449,7 +456,7 @@ the drawing. Cost in practice is milliseconds for families of a few words of len
 
 | path | role |
 |---|---|
-| `main.py` | the entry point: `argparse` command line (`demo`, `evaluate`, `signs`, `coexist`, `test`) and the narrated demos |
+| `main.py` | the entry point: imports the three modules into one namespace for `python3 -i main.py`, and defines `demo()` and `run_tests()` |
 | `regions.py` | the engine: `State`, `make_state`, `forward`, `forward_new_arc`, `seg_possibilities_given_gen`, `gen_possibilities`, `new_arc_possibilities`, `state_str` |
 | `searching.py` | frontier search and the single-word API (§6) |
 | `coexistence.py` | multi-word co-existence (§7): `can_coexist`, `coexist_witness` |
@@ -516,8 +523,8 @@ segment id `k` lands at index `k`.
 
 **Rank vs. word content.** `evaluate(n, word)` puts `n` punctures in the disk regardless of
 which generators the word uses. Extra punctures are never a help or a hindrance, so
-`test/test_corpus.py` just passes `rank=15` for every corpus, and `main.py` defaults the rank to
-`max |letter|`. But `n` must be at least `max |letter|` or `_validate_word` rejects the word.
+`test/test_corpus.py` just passes `rank=15` for every corpus. But `n` must be at least
+`max |letter|` or `_validate_word` rejects the word.
 
 **Performance shape.** Cost per letter is `|frontier| × (choices) × O(total faces)`; the
 frontier is the thing that explodes. `evaluate` on a single word is cheap. The expensive entry

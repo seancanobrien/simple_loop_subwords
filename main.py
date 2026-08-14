@@ -1,46 +1,34 @@
 """
-Entry point for the simple-loop subwords codebase.
+Interactive entry point.  Start a session with everything loaded:
 
-Which words in the free group F_n can be drawn as embedded (non-self-crossing) arcs in
-a disk with n punctures?  A word that cannot be drawn cannot be a subword of any simple
+    python3 -i main.py
+
+That imports the engine (`regions.py`), the single-word search (`searching.py`) and the
+co-existence test (`coexistence.py`) into one namespace, defines the demos below, and
+prints a summary of what is available.
+
+Which words in the free group F_n can be drawn as embedded (non-self-crossing) arcs in a
+disk with n punctures?  A word that cannot be drawn cannot be a subword of any simple
 loop, which is what makes the question useful: it rules words out of the braid orbit
 Q = B_n . x_1.  See README.md for orientation and algorithm_details.md for the details.
 
-Layout
-------
-    regions.py      the engine -- State, and one crossing at a time
-    searching.py    breadth-first search over drawings of a single word
-    coexistence.py  can a whole family of words be drawn simultaneously?
-    main.py         this file: command line and demos
-    test/           corpus tests, a self-checking co-existence suite, corpus generator
-
-Usage
------
-    python3 main.py demo                     narrated walk-through of all three modules
-    python3 main.py evaluate 1,2,-1          is this signed word drawable?
-    python3 main.py signs 1,2,1,3,2,3        find a sign assignment that works
-    python3 main.py coexist 1,2,1 2,3,2      can these words be drawn simultaneously?
-    python3 main.py test                     run both test suites
-
-Every command takes -n/--rank to set the number of punctures.  It defaults to the
-smallest rank the input admits; raising it changes nothing, because an arc can always
-pass beneath an unused puncture without recording a letter.
-
-A word whose first letter is an inverse begins with "-", which the argument parser would
-read as an option, so put it after "--":
-
-    python3 main.py evaluate -- -1,2,3
+Words are lists of non-zero integers, with x_j written as j and its inverse as -j, so
+x_1 x_2 x_1^-1 is [1, 2, -1].  The rank n must be at least max |letter|; making it larger
+changes nothing, because an arc can always pass beneath an unused puncture without
+recording a letter.
 """
 
-import argparse
 import sys
 from pathlib import Path
 
 from regions import (
+    State,
     make_state,
     forward,
+    forward_new_arc,
     gen_possibilities,
     seg_possibilities_given_gen,
+    new_arc_possibilities,
     state_str,
 )
 from searching import (
@@ -53,30 +41,9 @@ from coexistence import (
     coexist_witness,
 )
 
-
-# ------------------------------------------------------------------ word parsing
-
-def parse_word(text: str) -> list[int]:
-    """
-    Parse a word given on the command line into a list of non-zero integers.
-
-    Letters may be separated by commas or spaces, and surrounding brackets are ignored,
-    so "1,2,-1", "[1, 2, -1]" and "1 2 -1" all parse alike.
-    """
-    cleaned = text.strip().strip("[]()").replace(",", " ")
-    if not cleaned.split():
-        raise argparse.ArgumentTypeError(f"empty word: {text!r}")
-    try:
-        return [int(tok) for tok in cleaned.split()]
-    except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"cannot parse {text!r} as a word; expected something like 1,2,-1"
-        ) from None
-
-
-def default_rank(words: list[list[int]]) -> int:
-    """The smallest rank admitting every letter of every word."""
-    return max((abs(x) for word in words for x in word), default=1)
+# Captured at import: `python3 -i` deletes __file__ before handing over the prompt, so it
+# cannot be read from inside a function called interactively.
+_REPO_ROOT = Path(__file__).resolve().parent
 
 
 # ------------------------------------------------------------------ demos
@@ -102,9 +69,9 @@ def demo_regions() -> None:
     print(f"  {state.regions}")
 
     print("\nWhat the arc can do next is limited by the region its tip sits in.")
-    print(f"  no face of line 3 is reachable in the negative direction:")
+    print("  no face of line 3 is reachable in the negative direction:")
     print(f"    seg_possibilities_given_gen(state, -3) = {seg_possibilities_given_gen(state, -3)}")
-    print(f"  the letters available at all are:")
+    print("  the letters available at all are:")
     print(f"    gen_possibilities(state)               = {sorted(gen_possibilities(state))}")
 
     print("\nThe full state:")
@@ -153,7 +120,7 @@ def demo_coexistence() -> None:
     print("  with permute=False, respect_signs=True to replay the drawing.")
 
     solo = [1, 2, 1, 3, 2, 3]
-    print(f"\nA word that cannot be drawn alone sinks any family containing it:")
+    print("\nA word that cannot be drawn alone sinks any family containing it:")
     print(f"  can_coexist({rank}, [{solo}]) = {can_coexist(rank, [solo])}")
 
     family = [[1, 2, 1]] * 3
@@ -176,146 +143,60 @@ def demo_coexistence() -> None:
     print("nothing here checks that the disjoint arcs can be joined into one closed loop.")
 
 
+def demo() -> None:
+    """Run all three narrated walk-throughs."""
+    demo_regions()
+    demo_searching()
+    demo_coexistence()
+    print()
+
+
 def _banner(title: str) -> str:
     """A section heading for the demo output."""
     return f"\n{'=' * 78}\n {title}\n{'=' * 78}"
 
 
-# ------------------------------------------------------------------ commands
+# ------------------------------------------------------------------ tests
 
-def cmd_demo(args: argparse.Namespace) -> int:
-    """Run the narrated walk-throughs."""
-    sections = {
-        "regions": demo_regions,
-        "searching": demo_searching,
-        "coexistence": demo_coexistence,
-    }
-    chosen = sections if args.section == "all" else {args.section: sections[args.section]}
-    for run in chosen.values():
-        run()
-    print()
-    return 0
+def run_tests() -> int:
+    """
+    Run both test suites and return the number that reported failures.
 
-
-def cmd_evaluate(args: argparse.Namespace) -> int:
-    """Report whether one signed word is drawable."""
-    rank = default_rank([args.word]) if args.rank is None else args.rank
-    result = evaluate(rank, args.word)
-    print(f"evaluate({rank}, {args.word}) = {result}")
-    return 0 if result else 1
-
-
-def cmd_signs(args: argparse.Namespace) -> int:
-    """Search for a sign assignment, and optionally a relabelling, that works."""
-    rank = default_rank([args.word]) if args.rank is None else args.rank
-    if args.permute:
-        assignment = valid_permutation_and_assignment_of_signs(rank, args.word)
-        label = "valid_permutation_and_assignment_of_signs"
-    else:
-        assignment = valid_assignment_of_signs(rank, args.word)
-        label = "valid_assignment_of_signs"
-    print(f"{label}({rank}, {args.word}) = {assignment}")
-    return 0 if assignment is not None else 1
-
-
-def cmd_coexist(args: argparse.Namespace) -> int:
-    """Report whether a family of words can be drawn simultaneously."""
-    rank = default_rank(args.words) if args.rank is None else args.rank
-    permute = not args.no_permute
-    result = can_coexist(rank, args.words, permute=permute, respect_signs=args.respect_signs)
-    print(f"can_coexist({rank}, {args.words}) = {result}")
-    if result and args.witness:
-        witness = coexist_witness(rank, args.words,
-                                  permute=permute, respect_signs=args.respect_signs)
-        print(f"  permutation: {witness['permutation']}")
-        print(f"  as drawn:    {witness['signs']}")
-    return 0 if result else 1
-
-
-def cmd_test(args: argparse.Namespace) -> int:
-    """Run both test suites.  They live in test/, which is not a package."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent / "test"))
+    They live in test/, which is not a package, so it goes on the path first.
+    """
+    sys.path.insert(0, str(_REPO_ROOT / "test"))
     import test_corpus
     import test_coexistence
 
-    corpus_failures = test_corpus.main()
-    coexistence_failures = test_coexistence.main()
-    return corpus_failures or coexistence_failures
+    return test_corpus.main() + test_coexistence.main()
 
 
-# ------------------------------------------------------------------ command line
+# ------------------------------------------------------------------ session banner
 
-def build_parser() -> argparse.ArgumentParser:
-    """Build the argument parser for all subcommands."""
-    parser = argparse.ArgumentParser(
-        prog="main.py",
-        description=__doc__.split("Layout")[0].strip(),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    subparsers = parser.add_subparsers(dest="command")
+OVERVIEW = """\
+Simple-loop subwords.  Words are lists of non-zero ints, so x_1 x_2 x_1^-1 is [1, 2, -1].
 
-    # A word starting with an inverse letter starts with "-", so argparse would read it
-    # as an option; "--" is the way past that.
-    dash_note = 'a word starting with an inverse must follow "--", e.g. evaluate -- -1,2,3'
+  searching.py
+    evaluate(n, word)                                   is a signed word drawable?
+    valid_assignment_of_signs(n, word)                  signs that make it drawable
+    valid_permutation_and_assignment_of_signs(n, word)  ... also relabelling letters
 
-    def add_rank(sub: argparse.ArgumentParser) -> None:
-        sub.add_argument("-n", "--rank", type=int, default=None,
-                         help="number of punctures (default: the smallest that fits)")
+  coexistence.py
+    can_coexist(n, words)                               drawable all at once?
+    coexist_witness(n, words)                           ... with permutation and signs
 
-    demo = subparsers.add_parser("demo", help="narrated walk-through of the modules")
-    demo.add_argument("section", nargs="?", default="all",
-                      choices=["all", "regions", "searching", "coexistence"],
-                      help="which walk-through to run (default: all)")
-    demo.set_defaults(func=cmd_demo)
+  regions.py
+    make_state(n), forward(state, seg), forward_new_arc(state, seg, region_idx),
+    seg_possibilities_given_gen(state, gen), gen_possibilities(state),
+    new_arc_possibilities(state, gen), state_str(state)
 
-    ev = subparsers.add_parser("evaluate", help="is a signed word drawable?",
-                               epilog=dash_note)
-    ev.add_argument("word", type=parse_word, help="e.g. 1,2,-1")
-    add_rank(ev)
-    ev.set_defaults(func=cmd_evaluate)
+  main.py
+    demo()          narrated walk-through of all three modules
+                    (or demo_regions() / demo_searching() / demo_coexistence())
+    run_tests()     both test suites
 
-    sg = subparsers.add_parser("signs", help="find a sign assignment making a word drawable",
-                               epilog=dash_note)
-    sg.add_argument("word", type=parse_word, help="e.g. 1,2,1,3,2,3")
-    sg.add_argument("--permute", action="store_true",
-                    help="also try every relabelling of the letters")
-    add_rank(sg)
-    sg.set_defaults(func=cmd_signs)
-
-    co = subparsers.add_parser("coexist", help="can several words be drawn at once?",
-                               epilog=dash_note)
-    co.add_argument("words", nargs="+", type=parse_word, help="e.g. 1,2,1 2,3,2")
-    co.add_argument("--no-permute", action="store_true",
-                    help="fix the labelling instead of trying every permutation")
-    co.add_argument("--respect-signs", action="store_true",
-                    help="take the given signs literally instead of searching over them")
-    co.add_argument("--witness", action="store_true",
-                    help="also print the permutation and signs that work")
-    add_rank(co)
-    co.set_defaults(func=cmd_coexist)
-
-    te = subparsers.add_parser("test", help="run both test suites")
-    te.set_defaults(func=cmd_test)
-
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    """
-    Run one subcommand.  Returns a shell exit status: 0 for success, 1 for a negative
-    answer (not drawable, cannot co-exist, tests failed), 2 for a malformed word.
-    """
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if args.command is None:
-        parser.print_help()
-        return 0
-    try:
-        return args.func(args)
-    except (TypeError, ValueError) as exc:
-        print(f"main.py: {exc}", file=sys.stderr)
-        return 2
+Try:  evaluate(5, [1, 2, -1])      or      demo()"""
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    print(OVERVIEW)

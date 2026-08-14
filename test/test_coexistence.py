@@ -15,7 +15,7 @@ random sample of pairs drawn from it, and reported as one pass/fail line:
 The last of these is what shows the test is not vacuous: [1,2,1] and [3,2,3] are each
 drawable alone but never together, under any permutation and any signs.
 
-Run it directly, or as `python3 main.py test` from the repository root.
+Run it directly, or via `run_tests()` in a `python3 -i main.py` session.
 """
 
 # Make the modules in the repository root importable from inside test/.

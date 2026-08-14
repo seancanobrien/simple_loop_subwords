@@ -12,7 +12,7 @@ Each file holds one word per line, in Python list notation.
     mostly_non_valid.txt    a large mixed set with no per-line ground truth; reported as
                             a tally only, useful for spotting a change in behaviour
 
-Run it directly, or as `python3 main.py test` from the repository root.
+Run it directly, or via `run_tests()` in a `python3 -i main.py` session.
 """
 
 # Make the modules in the repository root importable from inside test/.

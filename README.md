@@ -35,7 +35,7 @@ Python 3.10 or later. No third-party dependencies.
 
 | path | role |
 |---|---|
-| `main.py` | entry point: command line and demos |
+| `main.py` | entry point: loads everything for an interactive session, and holds the demos |
 | `regions.py` | the engine — `State`, and one crossing at a time |
 | `searching.py` | breadth-first search over the drawings of a single word |
 | `coexistence.py` | can a whole family of words be drawn simultaneously? |
@@ -46,30 +46,31 @@ Python 3.10 or later. No third-party dependencies.
 
 ## Quick start
 
-```bash
-python3 main.py demo                     # narrated walk-through of all three modules
-python3 main.py evaluate 1,2,-1          # is this signed word drawable?
-python3 main.py signs 1,2,1,3            # find a sign assignment that works
-python3 main.py coexist 1,2,1 2,3,2      # can these words be drawn simultaneously?
-python3 main.py test                     # run both test suites
-```
-
-Every command takes `-n/--rank` to set the number of punctures. It defaults to the smallest
-rank the input admits; raising it changes nothing, because an arc can always pass beneath an
-unused puncture without recording a letter.
-
-A word whose first letter is an inverse begins with `-`, which the argument parser would read
-as an option, so put it after `--`:
+Start an interactive session with everything loaded:
 
 ```bash
-python3 main.py evaluate -- -1,2,3
+python3 -i main.py
 ```
 
-Commands exit `0` for a positive answer, `1` for a negative one, and `2` for a malformed
-word, so they compose in shell scripts.
+This imports all three modules into one namespace and prints a summary of what is available:
 
-`python3 main.py demo` takes an optional section — `regions`, `searching` or `coexistence` —
-to run just one walk-through.
+```python
+>>> evaluate(5, [1, 2, -1])
+True
+>>> can_coexist(5, [[1, 2, 1], [2, 3, 2]])
+True
+>>> demo()                # narrated walk-through of all three modules
+>>> run_tests()           # both test suites
+```
+
+Words are lists of non-zero integers, with $x_j$ written as `j` and its inverse as `-j`, so
+$x_1 x_2 x_1^{-1}$ is `[1, 2, -1]`. The rank must be at least `max |letter|`; making it larger
+changes nothing, because an arc can always pass beneath an unused puncture without recording a
+letter.
+
+Besides `demo()`, `main.py` defines `demo_regions()`, `demo_searching()` and
+`demo_coexistence()` to run a single walk-through, and `run_tests()`. Everything else in the
+namespace comes from the three modules below.
 
 ## Code overview
 
@@ -168,10 +169,11 @@ that the disjoint arcs can be joined up into a single closed loop.
 ## Testing
 
 ```bash
-python3 main.py test          # both suites
-python3 test/test_corpus.py   # or run either one directly
+python3 test/test_corpus.py       # either suite, directly
 python3 test/test_coexistence.py
 ```
+
+or `run_tests()` from an interactive session to run both.
 
 `test/subwords/` contains text files of words, one per line in Python list notation, grouped
 by expected behaviour:
