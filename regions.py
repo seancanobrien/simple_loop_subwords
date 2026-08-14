@@ -1,20 +1,65 @@
 """
-Functional implementation of Regions using an immutable NamedTuple state.
+The engine: an embedded arc drawn one crossing at a time in a punctured disk.
 
-State
+The arc drawn so far, together with the n generator lines, cuts the disk into regions,
+and each generator line is cut into segments by the places the arc has crossed it.  To
+contribute the next letter the arc must cross a segment of the right line in the right
+direction, and that segment must bound the region the arc's tip is currently in.
+`forward` performs one such crossing.
+
+Faces
 -----
-A NamedTuple with four named fields — behaves like a plain tuple underneath,
-so "copying" is just constructing a new instance with _replace().  No deepcopy.
+A segment has two sides, and both are encoded in one signed integer: the *left* face of
+segment k is +k and its *right* face is -k.  Crossing from face +k contributes a
+positive generator, crossing from -k contributes an inverse.  Throughout this module
+the variable `seg` is a signed **face**, and it is the face the arc crosses *from* --
+so `forward(state, 2)` and `forward(state, -2)` are different moves on one segment.
+
+Regions
+-------
+Each region is a tuple of the signed faces on its boundary, read clockwise.  Only
+generator-line faces are listed; the arcs of the outer circle and the pieces of the
+drawn path that also bound the region are implicit.  Region tuples are **cyclic**:
+(-5, 6) and (6, -5) denote the same region, so they must not be compared with ==.
+
+By convention `regions[0]` is always the region holding the tip of the arc, and the tip
+sits at the junction between the last entry and the first entry of that tuple.  Every
+branch of `forward` finishes by rotating the new end-region so this holds; it is what
+makes the slicing in each branch read as "cut the boundary cycle here, re-anchor it
+there", and what lets the search layer deduplicate states.
 
 gen encoding
 ------------
-gen[k]  for k >= 1  stores gen[+k].
+gen[k]  for k >= 1  stores gen[+k], the generator index carried by face +k.
 gen[-k] is always -gen[+k], so negative keys are never stored explicitly.
-gen[0]  is unused (seg IDs start at 1); stored as 0 as a placeholder.
+gen[0]  is unused (segment IDs start at 1); stored as 0 as a placeholder.
+
+Every segment cut off line j inherits gen = j, so both halves of a split segment go on
+contributing the same generator.
+
+State
+-----
+A NamedTuple with five named fields -- behaves like a plain tuple underneath, so
+"copying" is just constructing a new instance with _replace().  No deepcopy.  Being
+hashable is what lets the search layer keep states in a set and deduplicate for free.
+
+Invariants
+----------
+These hold for every reachable state, and are the best way to test changes to
+`forward`:
+
+1. Each signed face appears exactly once across all regions.
+2. Faces come in pairs: +k is present if and only if -k is.
+3. One new segment per crossing: after c crossings there are n + c segments.
+4. An ordinary crossing adds one region; a crossing that *starts* an arc adds none,
+   because a slit does not disconnect.
+5. regions[0] is the end-region, anchored as above.
 """
 
 from typing import NamedTuple
 
+
+# ------------------------------------------------------------------ state
 
 class State(NamedTuple):
     n:                    int                        # number of punctures
@@ -170,8 +215,32 @@ def forward_new_arc(state: State, seg: int, region_idx: int = 0) -> State:
 
 def forward(state: State, seg: int) -> State:
     """
-    Cross segment seg (present in the end-region).
-    Returns a new State.  Raises ValueError if seg is not in the end-region.
+    Cross the face seg, which must bound the end-region, and return the new State.
+    Raises ValueError if seg is not in the end-region.
+
+    The arc runs from the tip to a point q in the interior of the crossed segment and
+    passes through.  Two things happen: the segment is split at q, one piece keeping the
+    old ID and the other taking a fresh ID T (inheriting its generator); and the region
+    is cut along the arc.  In every branch the split follows the same convention,
+
+        crossed face  seg  splits clockwise into ( seg_sgn * T,  seg )
+        partner face -seg  splits clockwise into ( -seg, -seg_sgn * T )
+
+    and the region owning the partner face is rotated to begin at -seg_sgn * T, because
+    the tip lands exactly at that junction.
+
+    Where the partner face -seg currently lives decides which branch applies:
+
+        the arc is starting here          a slit, not a chord -- see forward_new_arc
+        -seg in the end-region, after seg   case A, first sub-case
+        -seg in the end-region, before seg  case A, second sub-case
+        -seg in some other region           case B
+
+    In case A the arc leaves the region and comes straight back, so the cut is a genuine
+    chord and the region splits in two; the tip lands in whichever half holds -seg.  In
+    case B the old end-region is cut in two and neither half holds the tip: the region
+    owning -seg is not cut at all, only relabelled and re-anchored, and it becomes the
+    new end-region.  Both add one region, as the invariants require.
     """
     region = state.regions[0]
 
@@ -226,7 +295,7 @@ def state_str(state: State) -> str:
         lines.append(f"  [{i}] {list(r)}{marker}")
     lines.append(")")
     gen_display = {seg: _gen(state, seg) for region in state.regions for seg in region}
-    lines.append(f"gen               = {gen_display}")
-    lines.append(f"next_seg          = {state.next_seg}")
+    lines.append(f"gen                 = {gen_display}")
+    lines.append(f"next_seg            = {state.next_seg}")
     lines.append(f"first_crossing_done = {state.first_crossing_done}")
     return "\n".join(lines)

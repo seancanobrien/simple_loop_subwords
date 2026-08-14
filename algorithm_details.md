@@ -1,12 +1,23 @@
 # Algorithm details
 
-An orientation document for anyone (human or AI agent) picking up this codebase. It explains
-what the code computes, how the state encoding works, and — in detail — what `regions.forward`
-is doing geometrically, because that function is the whole engine and its index arithmetic is
-opaque without the picture behind it.
+An orientation document for anyone picking up this codebase. It explains what the code
+computes, how the state encoding works, and — in detail — what `regions.forward` is doing
+geometrically, because that function is the whole engine and its index arithmetic is opaque
+without the picture behind it.
 
-Companion material: `tex/main.tex` (the written maths, with figures) and `README.md` (usage).
-This document is the bridge between them and the source.
+Companion material: the accompanying paper (the written maths, with the figures the case
+analysis below refers to) and `README.md` (usage). This document is the bridge between them
+and the source.
+
+Everything runs through `main.py` from the repository root, with no third-party dependencies:
+
+```bash
+python3 main.py demo        # narrated walk-through of all three modules
+python3 main.py test        # both test suites
+```
+
+If you are reading the code rather than running it, the order that makes sense is
+`regions.py` (§3–§5), then `searching.py` (§6), then `coexistence.py` (§7).
 
 ---
 
@@ -17,7 +28,7 @@ Take the closed unit disk `D` with `n` punctures `p_1, …, p_n` on the real axi
 word in the free group `F_n`: each time it crosses the generator line of `p_j` it records
 `x_j` (crossing left-to-right) or `x_j^{-1}` (right-to-left).
 
-The motivating problem (see `tex/main.tex` §Setup) is the dual Artin isomorphism problem. The
+The motivating problem (see the paper, §Setup) is the dual Artin isomorphism problem. The
 orbit `Q = B_n · x_1` under the braid group consists of words that all correspond to **simple**
 (embedded) loops. We want to rule out words from appearing in `Q`, so we ask:
 
@@ -54,7 +65,7 @@ drawable iff some branch survives to the end.
 
 ### 3.1 Faces are signed integers
 
-A segment has two sides. Following `tex/main.tex`, the **left face** of a segment gets a
+A segment has two sides. Following the paper, the **left face** of a segment gets a
 positive integer, and the **right face** of the same segment gets its negative. So the signed
 integer `+s` and `-s` are the two faces of one physical segment.
 
@@ -75,7 +86,7 @@ and `_gen(state, seg)` returns `gen[|seg|]` for `seg > 0`, `-gen[|seg|]` for `se
 keys are never stored, since `gen[-k] = -gen[+k]` always. Initially `gen[k] = k` for
 `k = 1 … n`; every segment later cut off line `j` inherits `gen = j` (`_fresh_seg`).
 
-This is the code's version of the sets `S_x` in the LaTeX: `S_{x_j}` is
+This is the code's version of the sets `S_x` in the paper: `S_{x_j}` is
 `{ s : _gen(s) = j }`, and `seg_possibilities_given_gen(state, j)` is the intersection of that
 set with the current region.
 
@@ -85,7 +96,7 @@ set with the current region.
 boundary, **read clockwise**. Only generator-line faces are listed — the arcs of the outer
 circle and the pieces of the drawn path that also bound the region are implicit, not stored.
 
-Region tuples are **cyclic**: `(-5, 6)` and `(6, -5)` denote the same region. (The LaTeX
+Region tuples are **cyclic**: `(-5, 6)` and `(6, -5)` denote the same region. (The paper's
 example writes `(6, -5)` where the code produces `(-5, 6)`; they agree.)
 
 ### 3.4 The end-region convention — the single most important detail
@@ -159,7 +170,7 @@ index `i`, and passes through to the other side. Two things happen:
 - **The segment is split at `q`.** Its `+` face becomes two faces and its `-` face becomes two
   faces. One piece of each keeps the old id, the other pair gets `±T`. Because
   `gen[T] = gen[|seg|]`, both pieces contribute the same generator as before — this is the
-  `S_x ← S_x ∪ {T}` step of the LaTeX.
+  `S_x ← S_x ∪ {T}` step of the paper.
 - **The region is cut** along the arc, into the part clockwise-before `q` and the part
   clockwise-after `q`.
 
@@ -168,9 +179,9 @@ The arc emerges on the opposite face `-seg`. Where `-seg` currently lives decide
 | situation | code branch |
 |---|---|
 | the arc is *starting* here (`first_crossing_done` is `False`) | new arc, §5.2 |
-| `-seg` in the end-region, **after** `seg` (`i < pair_pos`) | Case A, first sub-case (LaTeX case 1b) |
-| `-seg` in the end-region, **before** `seg` (`i > pair_pos`) | Case A, second sub-case (LaTeX case 1a) |
-| `-seg` in some other region | Case B (LaTeX case 2) |
+| `-seg` in the end-region, **after** `seg` (`i < pair_pos`) | Case A, first sub-case (paper case 1b) |
+| `-seg` in the end-region, **before** `seg` (`i > pair_pos`) | Case A, second sub-case (paper case 1a) |
+| `-seg` in some other region | Case B (paper case 2) |
 
 `_find_signed(regions, -seg)` locates it, returning `(region_index, position)`; it is a linear
 scan over every face, so it is `O(n + c)` per step.
@@ -184,7 +195,7 @@ partner face -seg   splits clockwise into ( -seg, -seg_sgn·T )
 
 and the region owning the partner face is rotated to begin at `-seg_sgn·T`, because the arc tip
 lands exactly at that junction. Since `gen[T] = gen[|seg|]`, both halves of the split segment
-still contribute the same generator — this is the `S_x ← S_x ∪ {T}` step of the LaTeX.
+still contribute the same generator — this is the `S_x ← S_x ∪ {T}` step of the paper.
 
 ### 5.2 Starting an arc — why the region does *not* split
 
@@ -209,21 +220,21 @@ different-region case only matter for co-existence (§7) — for a single word t
 and no partner elsewhere.
 
 For `n = 4`, crossing `+1`: `(1,-1,2,-2,3,-3,4,-4)` → `(-5, 2,-2,3,-3,4,-4, 5, 1, -1)`, matching
-STEP 1 of the LaTeX example. Reading it clockwise: `5` is the upper piece of line 1 (from `i`
+STEP 1 of the paper's example. Reading it clockwise: `5` is the upper piece of line 1 (from `i`
 down to `q`), then the slit, then `1` (from `q` down to `p_1`), round the puncture, back up `-1`
 to `q`, then the arc tip, then `-5`.
 
 Applied to the pristine region this is algebraically identical to the older special-cased
 formulas it replaced (`(-T,) + region[i+2:] + region[:i] + (T,) + region[i:i+2]` for positive
 `seg`, `(T, -T) + region[i:] + region[:i]` for negative), which relied on `-seg` sitting at
-`i ± 1`. `src/test/test_coexistence.py` pins that equivalence.
+`i ± 1`. `test/test_coexistence.py` pins that equivalence.
 
 ### 5.3 Case A — the partner face is in the same region
 
 The arc leaves the region and comes straight back into it. The cut is a genuine chord, so the
 region splits in two; the tip lands in whichever half contains `-seg`.
 
-**Sub-case `i < pair_pos`** (partner after the crossed face, LaTeX case 1b):
+**Sub-case `i < pair_pos`** (partner after the crossed face, paper case 1b):
 
 ```python
 left  = region[:i] + (seg_sgn * T,)
@@ -236,7 +247,7 @@ new_regions = (right,) + state.regions[1:] + (left,)
 begins at `-T` — because the tip is exactly at the `-seg | -T` junction. `right` contains
 `-seg`, so `right` becomes the new `regions[0]`.
 
-**Sub-case `i > pair_pos`** (partner before the crossed face, LaTeX case 1a):
+**Sub-case `i > pair_pos`** (partner before the crossed face, paper case 1a):
 
 ```python
 left  = (-seg_sgn * T,) + region[pair_pos + 1:i] + (seg_sgn * T,) + region[:pair_pos + 1]
@@ -246,8 +257,8 @@ new_regions = (left,) + state.regions[1:] + (right,)
 
 Here `-seg` lies in the *before* half, so that half — `left` — becomes the new end-region,
 again rotated to start at `-T`. Reading `left` from `+T` instead: `T, region[0..pair_pos], -T,
-region[pair_pos+1..i-1]`, which is the LaTeX's `(-T, …, T, …, -j)`. `right` is everything from
-the crossed face onwards, the LaTeX's `(j, …)`; the piece of the split segment that keeps the id
+region[pair_pos+1..i-1]`, which is the paper's `(-T, …, T, …, -j)`. `right` is everything from
+the crossed face onwards, the paper's `(j, …)`; the piece of the split segment that keeps the id
 `seg` stays at its head.
 
 ### 5.4 Case B — the partner face is in a different region
@@ -266,7 +277,7 @@ region `r'` that owns `-seg` is not cut at all — it only has its boundary rela
 becoming `(-seg, -T)` — and rotated to start at `-T`, so it becomes the new `regions[0]`. Net
 region count `+1`, as required by invariant 4.
 
-### 5.5 Worked example (matches `tex/main.tex`)
+### 5.5 Worked example (matches the paper)
 
 `n = 4`, word `x_1 x_2 x_4^{-1}`:
 
@@ -315,48 +326,29 @@ Anchoring the end-region (§3.4) is what makes the common case merge.
 | `evaluate(n, word)` | `True` iff the signed word is drawable |
 | `valid_assignment_of_signs(n, word)` | a choice of `±` per position making it drawable, else `None` |
 | `valid_permutation_and_assignment_of_signs(n, word)` | as above, also trying every relabelling of the symbols present |
-| `count_realisable(rank, length, prefix)` | `(drawable_count, total_count)` over reduced words extending `prefix` |
-| `collect_realisable(rank, length, filename, prefix)` | same, writing the words to CSV |
-| `count_minimal_invalid(rank, max_length)` | count of minimally-non-drawable words |
-| `collect_minimal_invalid(rank, max_length, filename)` | same, writing to CSV |
 
 `valid_assignment_of_signs` carries a frontier of `(state_set, sign_path)` pairs so it can
 report the assignment it found; because the paths are kept distinct, that frontier can grow
 like `2^len(word)` in the worst case — it is much more expensive than `evaluate`.
 
 `valid_permutation_and_assignment_of_signs` permutes `sorted(set(word))`. That is a set of
-**signed** letters, so it is really intended for unsigned (all-positive) input, as in `demo.py`;
-on a mixed-sign word, `1` and `-1` would be permuted as if they were unrelated symbols.
+**signed** letters, so it is really intended for unsigned (all-positive) input, as in the
+`main.py` demo; on a mixed-sign word, `1` and `-1` would be permuted as if they were unrelated
+symbols.
 
-### 6.2 Module flags
+### 6.2 Word validation
 
-Set at the top of `searching.py` and read by the helpers:
+`_validate_word(word, rank, check_for_squares=True)` is the one gate on the public entry
+points, and `coexistence.py` reuses it per word. It rejects
 
-- `IGNORE_POWERS = True` — treat words containing `x_j^{±2}` as out of scope. `_validate_word`
-  **raises** on a repeated letter, the enumerators skip those branches, and the `branch` count
-  drops to `2·rank - 2`. See §9. The GUI overwrites this module global at run time from a
-  checkbox (`gui.py:317` and friends), so it is not a compile-time constant in practice.
-- `PRODUCE_OUTPUT` is set by the GUI but never read inside `searching.py`; `IGNORE_SIGNS` and
-  `USE_MULTIPROCESSING` are read nowhere at all. Treat all three as vestigial.
+- anything that is not a non-empty list of non-zero integers,
+- letters outside `±1 … ±rank`,
+- non-reduced words (`w[i] == -w[i+1]`),
+- squares (`w[i] == w[i+1]`), unless `check_for_squares=False`.
 
-`_validate_word` also rejects non-reduced words (`w[i] == -w[i+1]`) and letters outside
-`±1 … ±rank`.
-
-### 6.3 Enumeration helpers
-
-`count_realisable` / `collect_realisable` walk the tree of reduced words of a given length
-extending a prefix (default `[1]`), advancing the frontier one letter at a time and cutting off
-whole subtrees the moment the frontier empties. `total` is computed combinatorially as
-`branch ** (length - len(prefix))` with `branch = 2·rank - 2` (or `2·rank - 1` if
-`IGNORE_POWERS` is off) — it is not a count of anything enumerated.
-
-`_minimal_invalid_words` finds words that are non-drawable but *minimally* so. It carries
-`suffix_sets[k] = frontier after reading word[k:]`, and only extends a word when every proper
-suffix stays alive; it emits the word when `suffix_sets[0]` finally empties. Since every proper
-subword of `w` is a suffix of some prefix of `w`, and prefixes are only extended while alive,
-the emitted words have **all** proper subwords drawable. Enumeration is rooted at the single
-letter `1`; the docstring notes these are canonical representatives up to cyclic permutation and
-reflection.
+The square rule is a scope decision rather than a limitation — see §9. Nothing in the
+repository passes `check_for_squares=False`; the parameter exists so that a caller studying
+powers deliberately can switch the rule off.
 
 ---
 
@@ -424,7 +416,7 @@ without recording a letter. Verified over 32,640 words: `evaluate` is invariant 
 order-preserving relabelling (`{1,2,3} → {1,3,5}`, `{2,3,7}`, `{1,4,5}`, …). So mapping symbols
 onto a wider or gappier subset of `{1..n}` can never reach a configuration a permutation misses.
 The same fact is why `evaluate(15, w)` and `evaluate(k, w)` agree for any `k ≥ max |letter|`,
-which is what lets `test.py` pass `rank=15` for everything.
+which is what lets `test/test_corpus.py` pass `rank=15` for everything.
 
 ### 7.5 API
 
@@ -457,21 +449,45 @@ the drawing. Cost in practice is milliseconds for families of a few words of len
 
 | path | role |
 |---|---|
-| `src/regions.py` | the engine: `State`, `make_state`, `forward`, `forward_new_arc`, `seg_possibilities_given_gen`, `gen_possibilities`, `new_arc_possibilities`, `state_str` |
-| `src/searching.py` | frontier search and the public API; everything below the "Simi function implementations" banner is enumeration/reporting |
-| `src/coexistence.py` | multi-word co-existence (§7): `can_coexist`, `coexist_witness` |
-| `src/demo.py` | short narrated walk-through of `regions.py` and `searching.py`; `coexistence.py` has its own `__main__` demo |
-| `src/gui.py` | Tkinter front-end (four tabs, background thread, optional CSV); no algorithmic content |
-| `src/test/test.py` | runs `evaluate` over each corpus and prints a true/false tally |
-| `src/test/test_coexistence.py` | self-checking suite for §7 — agreement with `searching.py`, order independence, witness replay, invariants |
-| `src/test/braid_orbit.py` | generates a ground-truth corpus: the orbit of `[1]` under braid words up to a given length — every word in it *should* evaluate `True` |
-| `src/test/subwords/*.txt` | corpora, one Python list per line |
-| `tex/main.tex` | the maths, with the figures the case analysis refers to |
+| `main.py` | the entry point: `argparse` command line (`demo`, `evaluate`, `signs`, `coexist`, `test`) and the narrated demos |
+| `regions.py` | the engine: `State`, `make_state`, `forward`, `forward_new_arc`, `seg_possibilities_given_gen`, `gen_possibilities`, `new_arc_possibilities`, `state_str` |
+| `searching.py` | frontier search and the single-word API (§6) |
+| `coexistence.py` | multi-word co-existence (§7): `can_coexist`, `coexist_witness` |
+| `test/test_corpus.py` | runs `evaluate` over each corpus and checks it against the expected result |
+| `test/test_coexistence.py` | self-checking suite for §7 — agreement with `searching.py`, order independence, witness replay, invariants |
+| `test/braid_orbit.py` | generates a ground-truth corpus: the orbit of `[1]` under braid words up to a given length — every word in it *should* evaluate `True` |
+| `test/subwords/*.txt` | corpora, one Python list per line |
 
-`src/test/subwords/braid_orbit_braidlength7_rank7.txt` (6585 words) is the most useful
-regression set: it is derived from the braid action, so every line is drawable by construction,
-and any `False` there is a genuine bug. `known_valid.txt` / `known_non_valid.txt` are small
-hand-curated sets; `mostly_non_valid.txt` is a large mixed set with no per-line ground truth.
+The modules import each other by bare name (`from regions import ...`), so they are run from
+the repository root. The two test files prepend the root to `sys.path` so they also work when
+run directly from inside `test/`.
+
+`test/subwords/braid_orbit_braidlength7_rank7.txt` (6585 words) is the most useful regression
+set: it is derived from the braid action, so every line is drawable by construction, and any
+`False` there is a genuine bug. `known_valid.txt` / `known_non_valid.txt` are small
+hand-curated sets; `mostly_non_valid.txt` is a large mixed set with no per-line ground truth,
+so `test_corpus.py` reports it as a tally only.
+
+### 8.1 What this release dropped
+
+This repository is a trimmed version of a larger working repository. If you are comparing
+against that one, the differences are:
+
+- **Enumeration and reporting helpers**, which lived below a "Simi function implementations"
+  banner in `searching.py`: `count_realisable`, `collect_realisable`, `count_minimal_invalid`,
+  `collect_minimal_invalid`, their recursive workers, and the CSV output they wrote.
+- **`gui.py`**, a Tkinter front-end with four tabs and a background worker thread. It had no
+  algorithmic content.
+- **Four module-level flags** in `searching.py` — `IGNORE_POWERS`, `PRODUCE_OUTPUT`,
+  `IGNORE_SIGNS`, `USE_MULTIPROCESSING` — which the GUI overwrote at run time. Only the first
+  was ever read; it survives as the `check_for_squares` parameter of `_validate_word` (§6.2),
+  with the same default.
+- **`demo.py`** and the `__main__` demo block in `coexistence.py`, both folded into the demo
+  functions in `main.py`.
+- **`tex/`**, the LaTeX source of the paper, which is distributed separately.
+
+The engine (`regions.py`), the search (`searching.py` above the banner) and the co-existence
+layer (`coexistence.py`) are unchanged, so results from either repository are comparable.
 
 ---
 
@@ -480,8 +496,8 @@ hand-curated sets; `mostly_non_valid.txt` is a large mixed set with no per-line 
 **Squares are "drawable", by design.** The algorithm will happily draw `x_j x_j`: you can spiral
 an ever-growing arc around a single puncture. Such words do not arise as subwords of reduced
 words in the setting of interest, for independent and provable reasons, so they are excluded
-rather than handled — that is what `IGNORE_POWERS = True` is for, and `_validate_word` raises on
-them. Do not "fix" a `True` answer on a square.
+rather than handled — that is what the `check_for_squares` default is for, and `_validate_word`
+raises on them (§6.2). Do not "fix" a `True` answer on a square.
 
 **The two halves of a cut end-region are `region[:i] + new face` and `region[i:]`.** Both Case A
 sub-cases and Case B slice the old end-region at the crossed face `i`; what differs between them
@@ -498,10 +514,17 @@ same; only `regions[0]` has a canonical rotation.
 **`gen` is indexed by absolute value** and is append-only; `gen[0]` is a placeholder so that
 segment id `k` lands at index `k`.
 
-**Rank vs. word content.** `evaluate(n, word)` puts `n` punctures in the disk regardless of which
-generators the word uses. Extra punctures are never a help or a hindrance, so `test.py` just
-passes `rank=15`. But `n` must be at least `max |letter|` or `_validate_word` rejects the word.
+**Rank vs. word content.** `evaluate(n, word)` puts `n` punctures in the disk regardless of
+which generators the word uses. Extra punctures are never a help or a hindrance, so
+`test/test_corpus.py` just passes `rank=15` for every corpus, and `main.py` defaults the rank to
+`max |letter|`. But `n` must be at least `max |letter|` or `_validate_word` rejects the word.
 
-**Performance shape.** Cost per letter is `|frontier| × (choices) × O(total faces)`; the frontier
-is the thing that explodes. `evaluate` on a single word is cheap; the enumerators are exponential
-in `length` and are the reason for the prefix argument.
+**Performance shape.** Cost per letter is `|frontier| × (choices) × O(total faces)`; the
+frontier is the thing that explodes. `evaluate` on a single word is cheap. The expensive entry
+points are `valid_assignment_of_signs`, whose frontier can grow like `2^len(word)` because sign
+paths are kept distinct (§6.1), and `valid_permutation_and_assignment_of_signs`, which runs it
+once per permutation of the symbols present.
+
+**Argument order differs between layers.** `regions.forward(state, seg)` takes the state first,
+but every public entry point takes the rank first: `evaluate(n, word)`, `can_coexist(n, words)`.
+The `n` is the number of punctures, never a word length.

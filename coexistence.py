@@ -55,12 +55,12 @@ from searching import _validate_word
 
 # ------------------------------------------------------------------ frontier steps
 
-def _advance(states, letter: int) -> set:
+def _advance(states: set, letter: int) -> set:
     """Continue the arc in progress by one signed letter."""
     return {forward(s, seg) for s in states for seg in seg_possibilities_given_gen(s, letter)}
 
 
-def _advance_new_arc(states, letter: int) -> set:
+def _advance_new_arc(states: set, letter: int) -> set:
     """Start a fresh arc -- in any region -- whose first crossing gives letter."""
     return {
         forward_new_arc(s, seg, ri)
@@ -116,7 +116,7 @@ def _recover_signs(n: int, words: list[list[int]]) -> list[list[int]] | None:
 
 # ------------------------------------------------------------------ helpers
 
-def _validate_family(words, rank: int) -> list[list[int]]:
+def _validate_family(words: list[list[int]], rank: int) -> list[list[int]]:
     """Validate each word with searching._validate_word; return them as fresh lists."""
     if not isinstance(words, (list, tuple)) or not words:
         raise ValueError("words must be a non-empty list of words")
@@ -144,6 +144,12 @@ def _relabellings(words: list[list[int]], permute: bool):
 
 
 def _sign_spec(words: list[list[int]], respect_signs: bool) -> list[list[int]]:
+    """
+    Build the `signs` argument of `_reachable` for a family of words.
+
+    With respect_signs the given signs are pinned; otherwise every position is left
+    free (0) for the sweep to explore.
+    """
     if respect_signs:
         return [[1 if x > 0 else -1 for x in word] for word in words]
     return [[0] * len(word) for word in words]
@@ -151,7 +157,8 @@ def _sign_spec(words: list[list[int]], respect_signs: bool) -> list[list[int]]:
 
 # ------------------------------------------------------------------ public API
 
-def can_coexist(n: int, words, permute: bool = True, respect_signs: bool = False) -> bool:
+def can_coexist(n: int, words: list[list[int]],
+                permute: bool = True, respect_signs: bool = False) -> bool:
     """
     True if every word in words can be drawn simultaneously, as pairwise disjoint
     embedded arcs in a disk with n punctures.
@@ -169,7 +176,8 @@ def can_coexist(n: int, words, permute: bool = True, respect_signs: bool = False
     return False
 
 
-def coexist_witness(n: int, words, permute: bool = True, respect_signs: bool = False):
+def coexist_witness(n: int, words: list[list[int]],
+                    permute: bool = True, respect_signs: bool = False) -> dict | None:
     """
     A witness that words can co-exist, or None if they cannot.
 
@@ -180,7 +188,7 @@ def coexist_witness(n: int, words, permute: bool = True, respect_signs: bool = F
     permutation, with a sign chosen for every letter.
 
     >>> coexist_witness(5, [[1, 2, 1], [2, 3, 2]])
-    {'permutation': {1: 1, 2: 2, 3: 3}, 'signs': [[1, 2, -1], [2, 3, -2]]}
+    {'permutation': {1: 1, 2: 2, 3: 3}, 'signs': [[1, 2, 1], [2, 3, -2]]}
     """
     words = _validate_family(words, n)
     for mapping, relabelled in _relabellings(words, permute):
@@ -200,32 +208,3 @@ def coexist_witness(n: int, words, permute: bool = True, respect_signs: bool = F
             ],
         }
     return None
-
-
-if __name__ == "__main__":
-    rank = 5
-
-    print("--------------------\n Co-existence demo\n--------------------")
-
-    pair = [[1, 2, 1], [2, 3, 2]]
-    print(f"\n{pair} can co-exist:\n>> {can_coexist(rank, pair)}")
-    print(f"   witness:\n>> {coexist_witness(rank, pair)}")
-
-    solo = [1, 2, 1, 3, 2, 3]
-    print(f"\n{solo} cannot even be drawn alone, so no family containing it can:")
-    print(f">> {can_coexist(rank, [solo])}")
-
-    family = [[1, 2, 1], [1, 2, 1], [1, 2, 1]]
-    print(f"\nThree disjoint copies of [1,2,1] in a disk with {rank} punctures:")
-    print(f">> {can_coexist(rank, family)}")
-
-    print("\nThe interesting case -- drawable individually, but never together,")
-    print("no matter how the letters are permuted or signed:")
-    for a, b in ([[1, 2, 1], [3, 2, 3]], [[1, 2, 1], [2, 3, 2, 3]]):
-        alone = can_coexist(rank, [a]) and can_coexist(rank, [b])
-        print(f"   {a} & {b}: each alone = {alone}, together = {can_coexist(rank, [a, b])}")
-
-    print("\nAny number of words is allowed; they are drawn one after another:")
-    grow = [[1, 2, 1], [2, 3, 2], [1, 3, 1], [2, 1, 2]]
-    for k in range(1, len(grow) + 1):
-        print(f"   first {k}: {can_coexist(rank, grow[:k])}")

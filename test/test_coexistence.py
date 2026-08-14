@@ -1,6 +1,27 @@
-# to be able to access files above the test directory
+"""
+Self-checking suite for coexistence.py.  Needs no corpus.
+
+Each property below is checked over a generated pool of short square-free words and a
+random sample of pairs drawn from it, and reported as one pass/fail line:
+
+    one-word families reproduce the single-word API in searching.py exactly
+    co-existence does not depend on the order the words are drawn in
+    every witness replays as a drawable family when taken literally
+    sub-families of a co-existing family co-exist
+    multi-arc configurations satisfy the regions.py invariants
+    forward_new_arc reproduces the first-crossing rule on the initial state
+    known discriminating pairs stay non-co-existing
+
+The last of these is what shows the test is not vacuous: [1,2,1] and [3,2,3] are each
+drawable alone but never together, under any permutation and any signs.
+
+Run it directly, or as `python3 main.py test` from the repository root.
+"""
+
+# Make the modules in the repository root importable from inside test/.
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import itertools
