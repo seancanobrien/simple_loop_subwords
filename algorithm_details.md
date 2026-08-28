@@ -17,7 +17,7 @@ python3 -i main.py
 ```
 
 ```python
->>> evaluate(5, [1, 2, -1])
+>>> can_exist([1, 2, 1, 3])
 True
 >>> demo()          # narrated walk-through of all three modules
 >>> run_tests()     # both test suites
@@ -330,22 +330,38 @@ Anchoring the end-region (§3.4) is what makes the common case merge.
 
 | function | meaning |
 |---|---|
-| `evaluate(n, word)` | `True` iff the signed word is drawable |
-| `valid_assignment_of_signs(n, word)` | a choice of `±` per position making it drawable, else `None` |
-| `valid_permutation_and_assignment_of_signs(n, word)` | as above, also trying every relabelling of the symbols present |
+| `can_exist(word, n=None, permute=True, respect_signs=False)` | `True` iff the word is drawable |
+| `can_exist_witness(word, n=None, permute=True, respect_signs=False)` | `{"permutation": …, "signs": …}` or `None` |
 
-`valid_assignment_of_signs` carries a frontier of `(state_set, sign_path)` pairs so it can
-report the assignment it found; because the paths are kept distinct, that frontier can grow
-like `2^len(word)` in the worst case — it is much more expensive than `evaluate`.
+Deliberately the same shape as the co-existence pair in §7.5 — a one-word family asks exactly
+this question, and `test_coexistence.py` checks that the two layers agree under all four flag
+combinations.
 
-`valid_permutation_and_assignment_of_signs` permutes `sorted(set(word))`. That is a set of
-**signed** letters, so it is really intended for unsigned (all-positive) input, as in the
-`main.py` demo; on a mixed-sign word, `1` and `-1` would be permuted as if they were unrelated
-symbols.
+The flags decide how literally the input is read:
+
+- **`respect_signs=True`** takes the word exactly as written. Under the default `False` only the
+  magnitudes matter and every position is free to become `x_j` or `x_j^{-1}`.
+- **`permute=True`** (the default) tries every relabelling of the symbols present, so the word is
+  read as a shape rather than as a particular labelling; `permute=False` fixes it as given.
+
+Sign choice is **fused into the sweep** rather than enumerated on top of it: at a free position
+the frontier advances by both `+l` and `-l` and the two results are merged, so a single sweep
+covers every assignment, deduplicated across them. This is the same mechanism as §7.3, and
+`_sweep` takes the same `signs` argument in which `0` means "free". `can_exist_witness` recovers
+a specific assignment by pinning one sign at a time and re-sweeping — exact, because a merged
+sweep is the union over every completion of the pinned prefix, so a sign can be committed to
+without looking ahead, and at most `2 × len(word)` sweeps.
+
+The permutation loop sits outside the sweep and permutes `sorted({|x| : x in word})` — the
+**unsigned** symbols — so signed and unsigned input are relabelled alike.
+
+`"signs"` in a witness holds the word **as drawn**: relabelled by the permutation, one sign per
+letter, so it can be fed straight back in with `permute=False, respect_signs=True` to replay the
+drawing. A witness is `None` exactly when the corresponding boolean is `False`.
 
 ### 6.2 Word validation
 
-`_validate_word(word, rank, check_for_squares=True)` is the one gate on the public entry
+`_validate_word(word, rank=None, check_for_squares=True)` is the one gate on the public entry
 points, and `coexistence.py` reuses it per word. It rejects
 
 - anything that is not a non-empty list of non-zero integers,
@@ -353,9 +369,28 @@ points, and `coexistence.py` reuses it per word. It rejects
 - non-reduced words (`w[i] == -w[i+1]`),
 - squares (`w[i] == w[i+1]`), unless `check_for_squares=False`.
 
+`rank=None` checks the shape of the word without imposing an upper bound on its symbols, which
+is what lets the rank itself be optional (§6.3).
+
 The square rule is a scope decision rather than a limitation — see §9. Nothing in the
 repository passes `check_for_squares=False`; the parameter exists so that a caller studying
 powers deliberately can switch the rule off.
+
+### 6.3 The optional rank
+
+`n` is the number of punctures in the disk, and it defaults to `None`. `_resolve_rank` reads
+that as *the smallest rank that admits the word*, `max |letter|`:
+
+```python
+def _resolve_rank(word, n):
+    _validate_word(word, n)
+    return max(abs(x) for x in word) if n is None else n
+```
+
+Any larger rank gives the same answer (§7.4), so the default is a free choice rather than a
+guess. Passing `n` explicitly matters only when a batch of words is to be compared at one fixed
+rank, as `test/test_corpus.py` does with `rank=15`. `coexistence.py` has the same default via
+`_resolve_family`, which takes the largest `|letter|` across the whole family.
 
 ---
 
@@ -396,7 +431,8 @@ the co-existence search fans out more widely than the single-word search.
 Sign choice does **not** need a separate enumeration layer. At an unsigned letter the frontier
 advances by both `+l` and `-l` and the two results are merged, so the frontier is exactly "every
 configuration reachable under every valid sign assignment" — deduplicated across assignments
-rather than kept as `2^|w|` separate frontiers. This is what makes handing a configuration from
+rather than kept as `2^|w|` separate frontiers. `searching._sweep` does the same thing for a
+single word (§6.1). This is what makes handing a configuration from
 one word to the next cheap, and it is the reason `_reachable` takes a `signs` argument where `0`
 means "free":
 
@@ -408,8 +444,8 @@ states  = set().union(*(step(states, option) for option in options))
 
 The cost is that a plain sweep no longer knows *which* signs worked. `_recover_signs` gets a
 witness back by pinning one sign at a time and re-sweeping, keeping the family feasible at each
-step — exact, because feasibility of a partially pinned family is monotone, and at most
-`2 × (total length)` sweeps.
+step — exact, because a merged sweep is the union over every completion of the pinned prefix, so
+a sign can be committed to without looking ahead — and at most `2 × (total length)` sweeps.
 
 ### 7.4 The permutation layer
 
@@ -419,23 +455,28 @@ cannot be chosen independently — and it sits outside everything else.
 Permuting only the symbols actually present is complete. Drawability depends solely on the
 *relative order* of the punctures used: a generator line runs from a puncture to the boundary, so
 it is a slit rather than a separating chord, and an arc can always pass beneath an unused puncture
-without recording a letter. Verified over 32,640 words: `evaluate` is invariant under every
+without recording a letter. Verified over 32,640 words: drawability is invariant under every
 order-preserving relabelling (`{1,2,3} → {1,3,5}`, `{2,3,7}`, `{1,4,5}`, …). So mapping symbols
 onto a wider or gappier subset of `{1..n}` can never reach a configuration a permutation misses.
-The same fact is why `evaluate(15, w)` and `evaluate(k, w)` agree for any `k ≥ max |letter|`,
-which is what lets `test/test_corpus.py` pass `rank=15` for everything.
+
+The same fact is why the answer at rank `max |letter|` and at any `k` above it agree, which is
+what makes the rank safe to default (§6.3) and lets `test/test_corpus.py` fix `rank=15` for
+every corpus. `test_coexistence.py` checks the two agree directly, for both layers.
 
 ### 7.5 API
 
 | function | meaning |
 |---|---|
-| `can_coexist(n, words, permute=True, respect_signs=False)` | `True` iff the family can be drawn simultaneously |
-| `coexist_witness(n, words, permute=True, respect_signs=False)` | `{"permutation": …, "signs": […]}` or `None` |
+| `can_coexist(words, n=None, permute=True, respect_signs=False)` | `True` iff the family can be drawn simultaneously |
+| `coexist_witness(words, n=None, permute=True, respect_signs=False)` | `{"permutation": …, "signs": […]}` or `None` |
 
-`permute=False` fixes the labelling; `respect_signs=True` takes the given signs literally instead
-of searching over them. With both set, a one-word family reduces exactly to `evaluate`; with
-neither, to `valid_permutation_and_assignment_of_signs`. `test_coexistence.py` checks that
-correspondence over 504 words.
+Same signature as the single-word pair in §6.1, with a list of words in place of the word: the
+rank is optional and defaults to the largest `|letter|` in the family, `permute=False` fixes the
+labelling, and `respect_signs=True` takes the given signs literally instead of searching over
+them. A one-word family is exactly the single-word question, and `test_coexistence.py` checks
+that `can_coexist([w], …)` and `can_exist(w, …)` agree under all four flag combinations, over
+504 words. The two are independently written implementations, which is what gives that check its
+value.
 
 `"signs"` holds the words **as drawn** — already relabelled by the permutation, one sign per
 letter — so it can be fed straight back in with `permute=False, respect_signs=True` to replay
@@ -443,7 +484,7 @@ the drawing. Cost in practice is milliseconds for families of a few words of len
 
 ### 7.6 Properties worth knowing (all verified in `test_coexistence.py`)
 
-- **Order independence.** `can_coexist(n, [w1, w2]) == can_coexist(n, [w2, w1])`. Disjointness is
+- **Order independence.** `can_coexist([w1, w2]) == can_coexist([w2, w1])`. Disjointness is
   symmetric, so the drawing order is an implementation detail. Checked over 2000 pairs.
 - **Monotone under sub-families.** If a family co-exists, so does every sub-family.
 - **Strictly stronger than drawing words separately.** `[1,2,1]` and `[3,2,3]` are each drawable
@@ -458,11 +499,11 @@ the drawing. Cost in practice is milliseconds for families of a few words of len
 |---|---|
 | `main.py` | the entry point: imports the three modules into one namespace for `python3 -i main.py`, and defines `demo()` and `run_tests()` |
 | `regions.py` | the engine: `State`, `make_state`, `forward`, `forward_new_arc`, `seg_possibilities_given_gen`, `gen_possibilities`, `new_arc_possibilities`, `state_str` |
-| `searching.py` | frontier search and the single-word API (§6) |
+| `searching.py` | frontier search and the single-word API (§6): `can_exist`, `can_exist_witness` |
 | `coexistence.py` | multi-word co-existence (§7): `can_coexist`, `coexist_witness` |
-| `test/test_corpus.py` | runs `evaluate` over each corpus and checks it against the expected result |
-| `test/test_coexistence.py` | self-checking suite for §7 — agreement with `searching.py`, order independence, witness replay, invariants |
-| `test/braid_orbit.py` | generates a ground-truth corpus: the orbit of `[1]` under braid words up to a given length — every word in it *should* evaluate `True` |
+| `test/test_corpus.py` | runs `can_exist` over each corpus, each word taken as written, and checks the tally |
+| `test/test_coexistence.py` | self-checking suite for §7 — agreement with `searching.py`, witness replay, rank invariance, order independence, invariants |
+| `test/braid_orbit.py` | generates a ground-truth corpus: the orbit of `[1]` under braid words up to a given length — every word in it *should* come out `True` |
 | `test/subwords/*.txt` | corpora, one Python list per line |
 
 The modules import each other by bare name (`from regions import ...`), so they are run from
@@ -493,8 +534,30 @@ against that one, the differences are:
   functions in `main.py`.
 - **`tex/`**, the LaTeX source of the paper, which is distributed separately.
 
-The engine (`regions.py`), the search (`searching.py` above the banner) and the co-existence
-layer (`coexistence.py`) are unchanged, so results from either repository are comparable.
+One thing was reshaped rather than dropped. The three single-word entry points `evaluate`,
+`valid_assignment_of_signs` and `valid_permutation_and_assignment_of_signs` are gone, replaced
+by `can_exist` and `can_exist_witness` (§6.1), which take the same flags as the co-existence
+pair so that all four entry points read alike. Each old function is one flag combination of the
+new pair:
+
+| old call | new call |
+|---|---|
+| `evaluate(n, w)` | `can_exist(w, n, permute=False, respect_signs=True)` |
+| `valid_assignment_of_signs(n, w)` | `can_exist_witness(w, n, permute=False)` |
+| `valid_permutation_and_assignment_of_signs(n, w)` | `can_exist_witness(w, n)` |
+
+The two witness rows return a dict where the old functions returned a bare word; the assignment
+is its `"signs"` entry, and the result is `None` in exactly the same cases as before.
+
+The answers are unchanged: the new pair was checked against the old implementation over 2,040
+signed and 1,452 unsigned words with no disagreement. Two details did improve. The permutation
+now acts on the unsigned symbols, where `valid_permutation_and_assignment_of_signs` permuted
+`sorted(set(word))` and so treated `1` and `-1` as unrelated symbols on mixed-sign input; and
+signs are now recovered by pinning rather than by keeping `2^len(word)` sign paths distinct. A
+returned witness may therefore differ from the old one — any valid assignment is a valid answer.
+
+The engine (`regions.py`), the search itself and the co-existence layer (`coexistence.py`) are
+unchanged, so results from either repository are comparable.
 
 ---
 
@@ -521,17 +584,23 @@ same; only `regions[0]` has a canonical rotation.
 **`gen` is indexed by absolute value** and is append-only; `gen[0]` is a placeholder so that
 segment id `k` lands at index `k`.
 
-**Rank vs. word content.** `evaluate(n, word)` puts `n` punctures in the disk regardless of
-which generators the word uses. Extra punctures are never a help or a hindrance, so
-`test/test_corpus.py` just passes `rank=15` for every corpus. But `n` must be at least
-`max |letter|` or `_validate_word` rejects the word.
+**Rank is a property of the disk, not of the word.** `n` is the number of punctures, never a
+word length, and it goes in the disk regardless of which generators the word actually uses.
+Extra punctures are never a help or a hindrance (§7.4), which is why `n` can default to the
+smallest rank admitting the input (§6.3) and why `test/test_corpus.py` can fix `rank=15` across
+corpora of different widths. An explicit `n` below `max |letter|` is rejected by
+`_validate_word`.
 
 **Performance shape.** Cost per letter is `|frontier| × (choices) × O(total faces)`; the
-frontier is the thing that explodes. `evaluate` on a single word is cheap. The expensive entry
-points are `valid_assignment_of_signs`, whose frontier can grow like `2^len(word)` because sign
-paths are kept distinct (§6.1), and `valid_permutation_and_assignment_of_signs`, which runs it
-once per permutation of the symbols present.
+frontier is the thing that explodes. One sweep is cheap, and searching over signs adds no
+sweeps at all, because sign choice is fused into the frontier rather than enumerated on top of
+it (§6.1). The expensive flag is the default `permute=True`, which runs the whole search once
+per permutation of the symbols present — `k!` of them for `k` distinct symbols. Pass
+`permute=False` when the labelling is meant as given: that is what lets `test/test_corpus.py`
+sweep all 16,385 corpus words in about two seconds. Recovering a witness costs at most
+`2 × len(word)` sweeps per permutation.
 
-**Argument order differs between layers.** `regions.forward(state, seg)` takes the state first,
-but every public entry point takes the rank first: `evaluate(n, word)`, `can_coexist(n, words)`.
-The `n` is the number of punctures, never a word length.
+**Argument order differs between layers.** The four public entry points take the word or words
+first and the optional rank second — `can_exist(word, n)`, `can_coexist(words, n)` — while the
+internal sweeps take the rank first, `_sweep(n, word, signs)` and `_reachable(n, words, signs)`,
+as the `regions` functions take the state first.

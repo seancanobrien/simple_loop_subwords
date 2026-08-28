@@ -5,6 +5,7 @@ Each property below is checked over a generated pool of short square-free words 
 random sample of pairs drawn from it, and reported as one pass/fail line:
 
     one-word families reproduce the single-word API in searching.py exactly
+    the default rank agrees with a larger one, for both APIs
     co-existence does not depend on the order the words are drawn in
     every witness replays as a drawable family when taken literally
     sub-families of a co-existing family co-exist
@@ -29,9 +30,8 @@ import random
 
 import regions as R
 from searching import (
-    evaluate,
-    valid_assignment_of_signs,
-    valid_permutation_and_assignment_of_signs,
+    can_exist,
+    can_exist_witness,
 )
 from coexistence import (
     can_coexist,
@@ -83,29 +83,49 @@ def main():
     print("------------------------------")
     print(f"coexistence: {len(pool)} words, {len(pairs)} sampled pairs, rank {RANK}")
 
-    # A one-word family must agree exactly with the single-word API in searching.py.
+    # A one-word family must agree exactly with the single-word API in searching.py,
+    # under every combination of the flags.  The two are independent implementations of
+    # the same question, so this is the sharpest check in the suite.
+    flags = [(permute, respect) for permute in (False, True) for respect in (False, True)]
     bad = 0
     for w in pool:
-        bad += can_coexist(RANK, [w], permute=False, respect_signs=True) != evaluate(RANK, w)
-        bad += can_coexist(RANK, [w], permute=False) != (
-            valid_assignment_of_signs(RANK, w) is not None)
-        bad += can_coexist(RANK, [w]) != (
-            valid_permutation_and_assignment_of_signs(RANK, w) is not None)
-    failures += report("single-word families agree with searching.py", bad, 3 * len(pool))
+        for permute, respect_signs in flags:
+            bad += (can_coexist([w], RANK, permute=permute, respect_signs=respect_signs)
+                    != can_exist(w, RANK, permute=permute, respect_signs=respect_signs))
+    failures += report("single-word families agree with searching.py",
+                       bad, len(flags) * len(pool))
+
+    # A single-word witness must replay as drawable when taken literally, and must be
+    # present exactly when the word is drawable at all.
+    bad = 0
+    for w in pool:
+        witness = can_exist_witness(w, RANK)
+        if not can_exist(w, RANK):
+            bad += witness is not None
+        elif witness is None or not can_exist(witness["signs"], RANK,
+                                              permute=False, respect_signs=True):
+            bad += 1
+    failures += report("single-word witnesses replay as feasible", bad, len(pool))
+
+    # Extra punctures are neither a help nor a hindrance, so the default rank -- the
+    # smallest that admits the words -- must agree with any larger one.
+    bad = sum(can_exist(w) != can_exist(w, RANK) for w in pool)
+    bad += sum(can_coexist([a, b]) != can_coexist([a, b], RANK) for a, b in pairs[:300])
+    failures += report("the default rank agrees with a larger one", bad, len(pool) + 300)
 
     # Disjointness is symmetric, so the drawing order must not matter.
-    bad = sum(1 for a, b in pairs if can_coexist(RANK, [a, b]) != can_coexist(RANK, [b, a]))
+    bad = sum(1 for a, b in pairs if can_coexist([a, b], RANK) != can_coexist([b, a], RANK))
     failures += report("co-existence is order independent", bad, len(pairs))
 
     # Every witness must replay as a drawable family when taken literally.
     bad = 0
     positives = 0
     for a, b in pairs:
-        if not can_coexist(RANK, [a, b]):
+        if not can_coexist([a, b], RANK):
             continue
         positives += 1
-        w = coexist_witness(RANK, [a, b])
-        if w is None or not can_coexist(RANK, w["signs"], permute=False, respect_signs=True):
+        w = coexist_witness([a, b], RANK)
+        if w is None or not can_coexist(w["signs"], RANK, permute=False, respect_signs=True):
             bad += 1
     failures += report("witnesses replay as feasible", bad, positives)
 
@@ -114,11 +134,11 @@ def main():
     triples = 0
     for _ in range(300):
         fam = [random.choice(pool) for _ in range(3)]
-        if not can_coexist(RANK, fam):
+        if not can_coexist(fam, RANK):
             continue
         triples += 1
-        bad += sum(1 for sub in itertools.combinations(fam, 2)
-                   if not can_coexist(RANK, list(sub)))
+        bad += sum(1 for pair in itertools.combinations(fam, 2)
+                   if not can_coexist(list(pair), RANK))
     failures += report("sub-families of a co-existing family co-exist", bad, triples)
 
     # Multi-arc configurations must satisfy the regions.py invariants.
@@ -146,8 +166,8 @@ def main():
     known_apart = [([1, 2, 1], [3, 2, 3]), ([1, 2, 1], [2, 3, 2, 3])]
     bad = 0
     for a, b in known_apart:
-        bad += not (can_coexist(RANK, [a]) and can_coexist(RANK, [b])
-                    and not can_coexist(RANK, [a, b]))
+        bad += not (can_coexist([a], RANK) and can_coexist([b], RANK)
+                    and not can_coexist([a, b], RANK))
     failures += report("known non-co-existing pairs stay non-co-existing", bad, len(known_apart))
 
     print("------------------------------")

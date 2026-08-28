@@ -13,9 +13,9 @@ loop, which is what makes the question useful: it rules words out of the braid o
 Q = B_n . x_1.  See README.md for orientation and algorithm_details.md for the details.
 
 Words are lists of non-zero integers, with x_j written as j and its inverse as -j, so
-x_1 x_2 x_1^-1 is [1, 2, -1].  The rank n must be at least max |letter|; making it larger
-changes nothing, because an arc can always pass beneath an unused puncture without
-recording a letter.
+x_1 x_2 x_1^-1 is [1, 2, -1].  The rank is optional throughout: it defaults to the
+smallest disk that admits the word, max |letter|, and a larger one changes nothing,
+because an arc can always pass beneath an unused puncture without recording a letter.
 """
 
 import sys
@@ -32,9 +32,8 @@ from regions import (
     state_str,
 )
 from searching import (
-    evaluate,
-    valid_assignment_of_signs,
-    valid_permutation_and_assignment_of_signs,
+    can_exist,
+    can_exist_witness,
 )
 from coexistence import (
     can_coexist,
@@ -87,57 +86,70 @@ def demo_searching() -> None:
     print("search carries the whole frontier of live drawings and advances it one letter")
     print("at a time.  Dead branches drop out on their own.\n")
 
+    print("With respect_signs=True and permute=False the word is taken exactly as written:")
     for word in ([1, 2, -1], [1, 2, -1, -3, 2, 3]):
-        print(f"  evaluate(5, {word}) = {evaluate(5, word)}")
+        call = f"can_exist({word}, permute=False, respect_signs=True)"
+        print(f"  {call:66} = {can_exist(word, permute=False, respect_signs=True)}")
 
-    print("\nRead as an unsigned word, [1, 2, 1, 3] is free to choose its signs, and one")
-    print("choice does make it drawable even though the all-positive reading is not:")
-    print(f"  evaluate(5, [1, 2, 1, 3])                  = {evaluate(5, [1, 2, 1, 3])}")
-    print(f"  valid_assignment_of_signs(5, [1, 2, 1, 3]) = "
-          f"{valid_assignment_of_signs(5, [1, 2, 1, 3])}")
+    print("\nBy default the signs are free instead.  [1, 2, 1, 3] is not drawable as")
+    print("written, but one choice of signs does make it so:")
+    print(f"  can_exist([1, 2, 1, 3], permute=False, respect_signs=True) = "
+          f"{can_exist([1, 2, 1, 3], permute=False, respect_signs=True)}")
+    print(f"  can_exist([1, 2, 1, 3], permute=False)                     = "
+          f"{can_exist([1, 2, 1, 3], permute=False)}")
+    print(f"  can_exist_witness([1, 2, 1, 3], permute=False)             = "
+          f"{can_exist_witness([1, 2, 1, 3], permute=False)}")
+    print("  The witness holds the word as actually drawn, so it can be fed back in with")
+    print("  permute=False, respect_signs=True to replay the drawing.")
 
     hard = [1, 2, 1, 3, 2, 3]
-    print(f"\n{hard} is drawable under no assignment of signs ...")
-    print(f"  valid_assignment_of_signs(5, {hard}) = {valid_assignment_of_signs(5, hard)}")
-    print("... and under no relabelling of its letters either:")
-    print(f"  valid_permutation_and_assignment_of_signs(5, {hard}) = "
-          f"{valid_permutation_and_assignment_of_signs(5, hard)}")
+    print(f"\n{hard} survives no assignment of signs ...")
+    print(f"  can_exist({hard}, permute=False) = {can_exist(hard, permute=False)}")
+    print("... nor any relabelling of its letters, which is what the default permute=True")
+    print("adds on top:")
+    print(f"  can_exist({hard})               = {can_exist(hard)}")
+
+    print("\nThe rank is optional, and defaults to the smallest disk admitting the word.")
+    print("Punctures the word never mentions are neither a help nor a hindrance:")
+    print(f"  {'can_exist([1, 2, 1, 3], permute=False)':41} = "
+          f"{can_exist([1, 2, 1, 3], permute=False)}   (rank 3, the default)")
+    print(f"  {'can_exist([1, 2, 1, 3], 9, permute=False)':41} = "
+          f"{can_exist([1, 2, 1, 3], 9, permute=False)}   (rank 9)")
 
 
 def demo_coexistence() -> None:
     """Walk through the multi-word co-existence test in coexistence.py."""
     print(_banner("coexistence.py -- can a family of words be drawn at once?"))
 
-    rank = 5
     print("The words are drawn one after another into the same disk.  A crossing is only")
     print("permitted through a face bounding the current region, so arcs drawn this way")
     print("are automatically disjoint -- disjointness needs no separate enforcement.\n")
 
     pair = [[1, 2, 1], [2, 3, 2]]
-    print(f"  can_coexist({rank}, {pair}) = {can_coexist(rank, pair)}")
-    print(f"  coexist_witness(...)                       = {coexist_witness(rank, pair)}")
-    print("  The witness holds the words as actually drawn, so it can be fed back in")
-    print("  with permute=False, respect_signs=True to replay the drawing.")
+    print(f"  {f'can_coexist({pair})':39} = {can_coexist(pair)}")
+    print(f"  {'coexist_witness(...)':39} = {coexist_witness(pair)}")
+    print("  Same interface as the single-word test: an optional rank, and the same two")
+    print("  flags, except that one permutation has to serve every word at once.")
 
     solo = [1, 2, 1, 3, 2, 3]
     print("\nA word that cannot be drawn alone sinks any family containing it:")
-    print(f"  can_coexist({rank}, [{solo}]) = {can_coexist(rank, [solo])}")
+    print(f"  can_coexist([{solo}]) = {can_coexist([solo])}")
 
     family = [[1, 2, 1]] * 3
-    print(f"\nThree disjoint copies of [1, 2, 1] fit in a disk with {rank} punctures:")
-    print(f"  can_coexist({rank}, {family}) = {can_coexist(rank, family)}")
+    print("\nThree disjoint copies of [1, 2, 1] fit in the same disk:")
+    print(f"  can_coexist({family}) = {can_coexist(family)}")
 
     print("\nThe interesting case -- each drawable alone, but never together, no matter")
     print("how the letters are permuted or signed:")
     for a, b in ([[1, 2, 1], [3, 2, 3]], [[1, 2, 1], [2, 3, 2, 3]]):
-        alone = can_coexist(rank, [a]) and can_coexist(rank, [b])
+        alone = can_coexist([a]) and can_coexist([b])
         print(f"  {str(a):12} & {str(b):15} each alone = {alone}, "
-              f"together = {can_coexist(rank, [a, b])}")
+              f"together = {can_coexist([a, b])}")
 
     print("\nAny number of words is allowed; they are drawn one after another:")
     grow = [[1, 2, 1], [2, 3, 2], [1, 3, 1], [2, 1, 2]]
     for k in range(1, len(grow) + 1):
-        print(f"  first {k} of {grow}: {can_coexist(rank, grow[:k])}")
+        print(f"  first {k} of {grow}: {can_coexist(grow[:k])}")
 
     print("\nCo-existence is necessary but not sufficient, as with the single-word test:")
     print("nothing here checks that the disjoint arcs can be joined into one closed loop.")
@@ -177,13 +189,16 @@ OVERVIEW = """\
 Simple-loop subwords.  Words are lists of non-zero ints, so x_1 x_2 x_1^-1 is [1, 2, -1].
 
   searching.py
-    evaluate(n, word)                                   is a signed word drawable?
-    valid_assignment_of_signs(n, word)                  signs that make it drawable
-    valid_permutation_and_assignment_of_signs(n, word)  ... also relabelling letters
+    can_exist(word)                     drawable as an embedded arc?
+    can_exist_witness(word)             ... with the signs and labelling it used
 
   coexistence.py
-    can_coexist(n, words)                               drawable all at once?
-    coexist_witness(n, words)                           ... with permutation and signs
+    can_coexist(words)                  drawable all at once, as disjoint arcs?
+    coexist_witness(words)              ... with the signs and labelling they used
+
+  All four take the rank as an optional second argument, defaulting to the smallest
+  disk that admits the input, and the flags permute=True and respect_signs=False,
+  which say whether the labelling and the signs of the input are meant literally.
 
   regions.py
     make_state(n), forward(state, seg), forward_new_arc(state, seg, region_idx),
@@ -195,7 +210,7 @@ Simple-loop subwords.  Words are lists of non-zero ints, so x_1 x_2 x_1^-1 is [1
                     (or demo_regions() / demo_searching() / demo_coexistence())
     run_tests()     both test suites
 
-Try:  evaluate(5, [1, 2, -1])      or      demo()"""
+Try:  can_exist([1, 2, 1, 3])      or      demo()"""
 
 
 if __name__ == "__main__":

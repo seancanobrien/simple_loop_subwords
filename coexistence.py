@@ -3,7 +3,7 @@ Co-existence of several subwords in one punctured disk.
 
 The question
 -----------
-`searching.evaluate` asks whether a single word can be drawn as an embedded arc.  This
+`searching.can_exist` asks whether a single word can be drawn as an embedded arc.  This
 module asks whether a *family* of words can be drawn simultaneously, as pairwise
 disjoint embedded arcs in one disk.
 
@@ -116,8 +116,13 @@ def _recover_signs(n: int, words: list[list[int]]) -> list[list[int]] | None:
 
 # ------------------------------------------------------------------ helpers
 
-def _validate_family(words: list[list[int]], rank: int) -> list[list[int]]:
-    """Validate each word with searching._validate_word; return them as fresh lists."""
+def _validate_family(words: list[list[int]], rank: int | None = None) -> list[list[int]]:
+    """
+    Validate each word with searching._validate_word; return them as fresh lists.
+
+    rank=None checks the shape of each word without imposing an upper bound on its
+    symbols.
+    """
     if not isinstance(words, (list, tuple)) or not words:
         raise ValueError("words must be a non-empty list of words")
     checked = []
@@ -130,6 +135,20 @@ def _validate_family(words: list[list[int]], rank: int) -> list[list[int]]:
             raise type(exc)(f"words[{k}]: {exc}") from None
         checked.append(list(word))
     return checked
+
+
+def _resolve_family(words: list[list[int]], n: int | None) -> tuple[list[list[int]], int]:
+    """
+    Validate the family and settle the rank of the disk to draw it in.
+
+    n=None asks for the smallest rank admitting every word, the largest |letter| in the
+    family.  Any larger rank gives the same answer, for the reason given in
+    `searching._resolve_rank`, so the default is a free choice rather than a guess.
+    """
+    words = _validate_family(words, n)
+    if n is None:
+        n = max(abs(x) for word in words for x in word)
+    return words, n
 
 
 def _relabellings(words: list[list[int]], permute: bool):
@@ -157,40 +176,49 @@ def _sign_spec(words: list[list[int]], respect_signs: bool) -> list[list[int]]:
 
 # ------------------------------------------------------------------ public API
 
-def can_coexist(n: int, words: list[list[int]],
+def can_coexist(words: list[list[int]], n: int | None = None,
                 permute: bool = True, respect_signs: bool = False) -> bool:
     """
     True if every word in words can be drawn simultaneously, as pairwise disjoint
     embedded arcs in a disk with n punctures.
 
+    n              punctures in the disk; None takes the smallest rank admitting them all
     permute        try every permutation of the symbols shared across all words
     respect_signs  take the given signs literally instead of searching over signs
 
-    >>> can_coexist(5, [[1, 2, 1], [2, 3, 2]])
+    One permutation applies to every word at once -- they share a disk, so their
+    labellings cannot be chosen independently.  It costs (number of symbols)! sweeps, so
+    pass permute=False when the labelling is meant as given.
+
+    >>> can_coexist([[1, 2, 1], [2, 3, 2]])
     True
+    >>> can_coexist([[1, 2, 1], [3, 2, 3]])   # each drawable alone, never together
+    False
     """
-    words = _validate_family(words, n)
+    words, n = _resolve_family(words, n)
     for _, relabelled in _relabellings(words, permute):
         if _reachable(n, relabelled, _sign_spec(relabelled, respect_signs)):
             return True
     return False
 
 
-def coexist_witness(n: int, words: list[list[int]],
+def coexist_witness(words: list[list[int]], n: int | None = None,
                     permute: bool = True, respect_signs: bool = False) -> dict | None:
     """
-    A witness that words can co-exist, or None if they cannot.
+    A witness that words can co-exist, or None if they cannot.  Flags are as
+    `can_coexist`.
 
     Returns {"permutation": {old_symbol: new_symbol, ...},
              "signs":       [signed_word, ...]}
 
     where "signs" holds the words as actually drawn -- already relabelled by the
-    permutation, with a sign chosen for every letter.
+    permutation, with a sign chosen for every letter -- so it can be fed straight back in
+    with permute=False, respect_signs=True to replay the drawing.
 
-    >>> coexist_witness(5, [[1, 2, 1], [2, 3, 2]])
+    >>> coexist_witness([[1, 2, 1], [2, 3, 2]])
     {'permutation': {1: 1, 2: 2, 3: 3}, 'signs': [[1, 2, 1], [2, 3, -2]]}
     """
-    words = _validate_family(words, n)
+    words, n = _resolve_family(words, n)
     for mapping, relabelled in _relabellings(words, permute):
         if respect_signs:
             signs = _sign_spec(relabelled, True)

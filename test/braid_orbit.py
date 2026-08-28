@@ -2,7 +2,7 @@
 Generate a ground-truth corpus from the braid action.
 
 The orbit Q = B_n . x_1 consists of words that all correspond to simple loops, so every
-word in it is drawable by construction.  Running `evaluate` over a generated file is
+word in it is drawable by construction.  Running `can_exist` over a generated file is
 therefore a regression test with no hand-curation involved: any False is a genuine bug.
 
 Run this file directly to write the orbit of [1] to

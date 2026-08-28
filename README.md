@@ -39,7 +39,7 @@ Python 3.10 or later. No third-party dependencies.
 | `regions.py` | the engine — `State`, and one crossing at a time |
 | `searching.py` | breadth-first search over the drawings of a single word |
 | `coexistence.py` | can a whole family of words be drawn simultaneously? |
-| `test/test_corpus.py` | runs `evaluate` over the word corpora |
+| `test/test_corpus.py` | runs `can_exist` over the word corpora |
 | `test/test_coexistence.py` | self-checking suite for `coexistence.py` |
 | `test/braid_orbit.py` | generates a ground-truth corpus from the braid action |
 | `test/subwords/*.txt` | corpora, one word per line in Python list notation |
@@ -55,22 +55,56 @@ python3 -i main.py
 This imports all three modules into one namespace and prints a summary of what is available:
 
 ```python
->>> evaluate(5, [1, 2, -1])
+>>> can_exist([1, 2, 1, 3])
 True
->>> can_coexist(5, [[1, 2, 1], [2, 3, 2]])
+>>> can_coexist([[1, 2, 1], [2, 3, 2]])
 True
 >>> demo()                # narrated walk-through of all three modules
 >>> run_tests()           # both test suites
 ```
 
 Words are lists of non-zero integers, with $x_j$ written as `j` and its inverse as `-j`, so
-$x_1 x_2 x_1^{-1}$ is `[1, 2, -1]`. The rank must be at least `max |letter|`; making it larger
-changes nothing, because an arc can always pass beneath an unused puncture without recording a
-letter.
+$x_1 x_2 x_1^{-1}$ is `[1, 2, -1]`.
 
 Besides `demo()`, `main.py` defines `demo_regions()`, `demo_searching()` and
 `demo_coexistence()` to run a single walk-through, and `run_tests()`. Everything else in the
 namespace comes from the three modules below.
+
+## The interface
+
+Four entry points, two for a single word and two for a family, all with the same signature:
+
+```python
+can_exist(word,          n=None, permute=True, respect_signs=False)  -> bool
+can_exist_witness(word,  n=None, permute=True, respect_signs=False)  -> dict | None
+
+can_coexist(words,       n=None, permute=True, respect_signs=False)  -> bool
+coexist_witness(words,   n=None, permute=True, respect_signs=False)  -> dict | None
+```
+
+- **`n`** — punctures in the disk. Optional: it defaults to the smallest rank that admits the
+  input, `max |letter|`. A larger rank never changes the answer, because an arc can always pass
+  beneath an unused puncture without recording a letter, so the default is a free choice rather
+  than a guess. Pass it explicitly to keep a batch of words comparable at one rank.
+- **`permute`** — try every relabelling of the symbols present. On by default, so the input is
+  read as a shape rather than as a particular labelling. It costs `(number of symbols)!` sweeps,
+  so pass `permute=False` when the labelling is meant as given. For a family, one permutation
+  applies to every word at once — they share a disk, so their labellings cannot be chosen
+  independently.
+- **`respect_signs`** — off by default, so only the magnitudes of the input matter and each
+  position is free to become $x_j$ or $x_j^{-1}$. Pass `respect_signs=True` to take the word
+  exactly as written.
+
+The two `*_witness` functions answer the same question but return the drawing they found:
+
+```python
+{"permutation": {old_symbol: new_symbol, ...}, "signs": <the input as actually drawn>}
+```
+
+`"signs"` holds the word (or list of words) already relabelled by the permutation and with a
+sign on every letter, so it can be fed straight back in with `permute=False,
+respect_signs=True` to replay the drawing. A witness is `None` exactly when the corresponding
+boolean is `False`.
 
 ## Code overview
 
@@ -106,20 +140,26 @@ deduplicated for free — which is what the search layer relies on.
 `searching.py` implements a breadth-first search over sets of states, advancing one letter at
 a time. Given a generator, there may be several valid segments to cross, so the search tracks
 all reachable states simultaneously; dead branches contribute nothing to the next frontier, so
-pruning is automatic. The entry points are:
+pruning is automatic.
 
-- `evaluate(n, word)` — `True` if the signed word is drawable
-- `valid_assignment_of_signs(n, word)` — a sign assignment making an unsigned word drawable, or `None`
-- `valid_permutation_and_assignment_of_signs(n, word)` — as above, also trying every relabelling of the letters
+Sign choice is folded into that same sweep: at a free position the frontier advances by both
+$x_j$ and $x_j^{-1}$ and the two results are merged, which explores every assignment for the
+price of one sweep. `can_exist_witness` then recovers a specific assignment by pinning one
+letter at a time, which is exact because a merged sweep is the union over every completion of
+the pinned prefix. The permutation loop sits outside the sweep.
 
 ```python
->>> from searching import evaluate, valid_assignment_of_signs
->>> evaluate(3, [1, 2, -1])
+>>> from searching import can_exist, can_exist_witness
+>>> can_exist([1, 2, -1], permute=False, respect_signs=True)     # exactly as written
 True
->>> evaluate(5, [1, 2, -1, -3, 2, 3])
+>>> can_exist([1, 2, 1, 3], permute=False, respect_signs=True)
 False
->>> valid_assignment_of_signs(5, [1, 2, 1, 3])
-[1, 2, -1, 3]
+>>> can_exist([1, 2, 1, 3], permute=False)                       # signs free
+True
+>>> can_exist_witness([1, 2, 1, 3], permute=False)
+{'permutation': {1: 1, 2: 2, 3: 3}, 'signs': [1, 2, -1, 3]}
+>>> can_exist([1, 2, 1, 3, 2, 3])                                # signs and labels free
+False
 ```
 
 Words are validated as reduced words over $x_1 \ldots x_n$, and squares are rejected: the
@@ -141,27 +181,19 @@ drawn this way are automatically disjoint from everything already drawn. What is
 one word to the next is a full set of region configurations, not merely a sign assignment. Any
 number of words is supported.
 
-- `can_coexist(n, words)` — `True` if the whole family can be drawn at once
-- `coexist_witness(n, words)` — a witness `{"permutation": ..., "signs": [...]}`, or `None`
-
-Both search over all permutations of the symbols shared across the words (one permutation
-applies to all of them, since they share a disk) and over all assignments of signs. Pass
-`permute=False` to fix the labelling, or `respect_signs=True` to take the given signs
-literally.
+`can_coexist(words)` and `coexist_witness(words)` take the same optional rank and the same two
+flags as their single-word counterparts. A one-word family is exactly the single-word question,
+and `test_coexistence.py` checks that the two agree under every combination of the flags.
 
 ```python
 >>> from coexistence import can_coexist, coexist_witness
->>> can_coexist(5, [[1, 2, 1], [2, 3, 2]])
+>>> can_coexist([[1, 2, 1], [2, 3, 2]])
 True
->>> coexist_witness(5, [[1, 2, 1], [2, 3, 2]])
+>>> coexist_witness([[1, 2, 1], [2, 3, 2]])
 {'permutation': {1: 1, 2: 2, 3: 3}, 'signs': [[1, 2, 1], [2, 3, -2]]}
->>> can_coexist(5, [[1, 2, 1], [3, 2, 3]])   # each drawable alone, never together
+>>> can_coexist([[1, 2, 1], [3, 2, 3]])   # each drawable alone, never together
 False
 ```
-
-The `"signs"` entry holds the words as actually drawn — already relabelled by the permutation,
-with a sign on every letter — so it can be fed straight back in with `permute=False,
-respect_signs=True` to replay the drawing.
 
 As with the single-word test, co-existence is **necessary but not sufficient**: nothing checks
 that the disjoint arcs can be joined up into a single closed loop.
@@ -178,19 +210,24 @@ or `run_tests()` from an interactive session to run both.
 `test/subwords/` contains text files of words, one per line in Python list notation, grouped
 by expected behaviour:
 
-- `known_valid.txt` — hand-curated; every word must evaluate `True`
-- `known_non_valid.txt` — hand-curated; every word must evaluate `False`
+- `known_valid.txt` — hand-curated; every word must come out `True`
+- `known_non_valid.txt` — hand-curated; every word must come out `False`
 - `braid_orbit_braidlength{k}_rank{n}.txt` — generated from the braid action, so every word is
   drawable by construction and any `False` is a genuine bug
 - `mostly_non_valid.txt` — a large mixed set with no per-line ground truth, reported as a
   tally only
 
-`test_corpus.py` evaluates each corpus and checks it against those expectations.
-`test_coexistence.py` needs no corpus: it checks that one-word families reproduce the
-single-word functions in `searching.py` exactly, that co-existence does not depend on the order
-the words are drawn in, that every witness replays as a drawable family, that sub-families of
-a co-existing family co-exist, that multi-arc configurations satisfy the `regions.py`
-invariants, and that `forward_new_arc` reproduces the first-crossing rule on the initial state.
+`test_corpus.py` runs `can_exist` over each corpus — with `permute=False, respect_signs=True`,
+so every word is taken exactly as written — and checks the tally against those expectations.
+
+`test_coexistence.py` needs no corpus. It checks that one-word families reproduce the
+single-word API in `searching.py` under every combination of the flags (the two are independent
+implementations of the same question, which makes this the sharpest check in the suite), that
+a witness replays as drawable and appears exactly when the boolean is `True`, that the default
+rank agrees with a larger one, that co-existence does not depend on the order the words are
+drawn in, that sub-families of a co-existing family co-exist, that multi-arc configurations
+satisfy the `regions.py` invariants, and that `forward_new_arc` reproduces the first-crossing
+rule on the initial state.
 
 `braid_orbit.py` regenerates the ground-truth corpus from the orbit of $x_1$ under all reduced
 braid words up to a given length. Generation is exponential in the braid length, so the
