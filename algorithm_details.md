@@ -5,9 +5,8 @@ computes, how the state encoding works, and — in detail — what `regions.forw
 geometrically, because that function is the whole engine and its index arithmetic is opaque
 without the picture behind it.
 
-Companion material: the accompanying paper (the written maths, with the figures the case
-analysis below refers to) and `README.md` (usage). This document is the bridge between them
-and the source.
+This document is self-contained: the maths it relies on is stated where it is used, so it
+can be read against the source alone. `README.md` covers usage.
 
 There are no third-party dependencies. `main.py` loads everything into one namespace for an
 interactive session, run from the repository root:
@@ -35,9 +34,9 @@ Take the closed unit disk `D` with `n` punctures `p_1, …, p_n` on the real axi
 word in the free group `F_n`: each time it crosses the generator line of `p_j` it records
 `x_j` (crossing left-to-right) or `x_j^{-1}` (right-to-left).
 
-The motivating problem (see the paper, §Setup) is the dual Artin isomorphism problem. The
-orbit `Q = B_n · x_1` under the braid group consists of words that all correspond to **simple**
-(embedded) loops. We want to rule out words from appearing in `Q`, so we ask:
+The motivating problem is the dual Artin isomorphism problem. The orbit `Q = B_n · x_1` under
+the braid group consists of words that all correspond to **simple** (embedded) loops. We want
+to rule out words from appearing in `Q`, so we ask:
 
 > **Given a word `w ∈ F_n`, can `w` be drawn as an embedded (non-self-crossing) arc in the
 > punctured disk?**
@@ -72,9 +71,9 @@ drawable iff some branch survives to the end.
 
 ### 3.1 Faces are signed integers
 
-A segment has two sides. Following the paper, the **left face** of a segment gets a
-positive integer, and the **right face** of the same segment gets its negative. So the signed
-integer `+s` and `-s` are the two faces of one physical segment.
+A segment has two sides. The **left face** of a segment gets a positive integer, and the
+**right face** of the same segment gets its negative. So the signed integer `+s` and `-s` are
+the two faces of one physical segment.
 
 Crossing *from* face `+s` (i.e. approaching from the left) contributes a positive generator;
 crossing from face `-s` contributes an inverse. Throughout the code, the variable named `seg`
@@ -93,9 +92,10 @@ and `_gen(state, seg)` returns `gen[|seg|]` for `seg > 0`, `-gen[|seg|]` for `se
 keys are never stored, since `gen[-k] = -gen[+k]` always. Initially `gen[k] = k` for
 `k = 1 … n`; every segment later cut off line `j` inherits `gen = j` (`_fresh_seg`).
 
-This is the code's version of the sets `S_x` in the paper: `S_{x_j}` is
-`{ s : _gen(s) = j }`, and `seg_possibilities_given_gen(state, j)` is the intersection of that
-set with the current region.
+Write `S_{x_j}` for the set of faces carrying generator `j`, i.e. `{ s : _gen(s) = j }`.
+Then `seg_possibilities_given_gen(state, j)` is the intersection of `S_{x_j}` with the current
+region. Splitting a segment adds a face to the set it came from — the `S_x ← S_x ∪ {T}` step
+referred to in §5.
 
 ### 3.3 Regions are cyclic tuples
 
@@ -103,8 +103,8 @@ set with the current region.
 boundary, **read clockwise**. Only generator-line faces are listed — the arcs of the outer
 circle and the pieces of the drawn path that also bound the region are implicit, not stored.
 
-Region tuples are **cyclic**: `(-5, 6)` and `(6, -5)` denote the same region. (The paper's
-example writes `(6, -5)` where the code produces `(-5, 6)`; they agree.)
+Region tuples are **cyclic**: `(-5, 6)` and `(6, -5)` denote the same region, so a region
+written at a different rotation than the code produces is the same region, not a discrepancy.
 
 ### 3.4 The end-region convention — the single most important detail
 
@@ -177,7 +177,7 @@ index `i`, and passes through to the other side. Two things happen:
 - **The segment is split at `q`.** Its `+` face becomes two faces and its `-` face becomes two
   faces. One piece of each keeps the old id, the other pair gets `±T`. Because
   `gen[T] = gen[|seg|]`, both pieces contribute the same generator as before — this is the
-  `S_x ← S_x ∪ {T}` step of the paper.
+  `S_x ← S_x ∪ {T}` step of §3.2.
 - **The region is cut** along the arc, into the part clockwise-before `q` and the part
   clockwise-after `q`.
 
@@ -186,9 +186,9 @@ The arc emerges on the opposite face `-seg`. Where `-seg` currently lives decide
 | situation | code branch |
 |---|---|
 | the arc is *starting* here (`first_crossing_done` is `False`) | new arc, §5.2 |
-| `-seg` in the end-region, **after** `seg` (`i < pair_pos`) | Case A, first sub-case (paper case 1b) |
-| `-seg` in the end-region, **before** `seg` (`i > pair_pos`) | Case A, second sub-case (paper case 1a) |
-| `-seg` in some other region | Case B (paper case 2) |
+| `-seg` in the end-region, **after** `seg` (`i < pair_pos`) | Case A, first sub-case (§5.3) |
+| `-seg` in the end-region, **before** `seg` (`i > pair_pos`) | Case A, second sub-case (§5.3) |
+| `-seg` in some other region | Case B (§5.4) |
 
 `_find_signed(regions, -seg)` locates it, returning `(region_index, position)`; it is a linear
 scan over every face, so it is `O(n + c)` per step.
@@ -201,8 +201,7 @@ partner face -seg   splits clockwise into ( -seg, -seg_sgn·T )
 ```
 
 and the region owning the partner face is rotated to begin at `-seg_sgn·T`, because the arc tip
-lands exactly at that junction. Since `gen[T] = gen[|seg|]`, both halves of the split segment
-still contribute the same generator — this is the `S_x ← S_x ∪ {T}` step of the paper.
+lands exactly at that junction.
 
 ### 5.2 Starting an arc — why the region does *not* split
 
@@ -226,10 +225,10 @@ The partner face may be in the starting region or in a different one; both work,
 different-region case only matter for co-existence (§7) — for a single word there is one region
 and no partner elsewhere.
 
-For `n = 4`, crossing `+1`: `(1,-1,2,-2,3,-3,4,-4)` → `(-5, 2,-2,3,-3,4,-4, 5, 1, -1)`, matching
-STEP 1 of the paper's example. Reading it clockwise: `5` is the upper piece of line 1 (from `i`
-down to `q`), then the slit, then `1` (from `q` down to `p_1`), round the puncture, back up `-1`
-to `q`, then the arc tip, then `-5`.
+For `n = 4`, crossing `+1`: `(1,-1,2,-2,3,-3,4,-4)` → `(-5, 2,-2,3,-3,4,-4, 5, 1, -1)`, the
+first step of the worked example in §5.5. Reading it clockwise: `5` is the upper piece of
+line 1 (from `i` down to `q`), then the slit, then `1` (from `q` down to `p_1`), round the
+puncture, back up `-1` to `q`, then the arc tip, then `-5`.
 
 Applied to the pristine region this is algebraically identical to the older special-cased
 formulas it replaced (`(-T,) + region[i+2:] + region[:i] + (T,) + region[i:i+2]` for positive
@@ -241,7 +240,7 @@ formulas it replaced (`(-T,) + region[i+2:] + region[:i] + (T,) + region[i:i+2]`
 The arc leaves the region and comes straight back into it. The cut is a genuine chord, so the
 region splits in two; the tip lands in whichever half contains `-seg`.
 
-**Sub-case `i < pair_pos`** (partner after the crossed face, paper case 1b):
+**Sub-case `i < pair_pos`** (partner after the crossed face):
 
 ```python
 left  = region[:i] + (seg_sgn * T,)
@@ -254,7 +253,7 @@ new_regions = (right,) + state.regions[1:] + (left,)
 begins at `-T` — because the tip is exactly at the `-seg | -T` junction. `right` contains
 `-seg`, so `right` becomes the new `regions[0]`.
 
-**Sub-case `i > pair_pos`** (partner before the crossed face, paper case 1a):
+**Sub-case `i > pair_pos`** (partner before the crossed face):
 
 ```python
 left  = (-seg_sgn * T,) + region[pair_pos + 1:i] + (seg_sgn * T,) + region[:pair_pos + 1]
@@ -264,9 +263,9 @@ new_regions = (left,) + state.regions[1:] + (right,)
 
 Here `-seg` lies in the *before* half, so that half — `left` — becomes the new end-region,
 again rotated to start at `-T`. Reading `left` from `+T` instead: `T, region[0..pair_pos], -T,
-region[pair_pos+1..i-1]`, which is the paper's `(-T, …, T, …, -j)`. `right` is everything from
-the crossed face onwards, the paper's `(j, …)`; the piece of the split segment that keeps the id
-`seg` stays at its head.
+region[pair_pos+1..i-1]` — so as written it has the shape `(-T, …, T, …, -j)`. `right` is
+everything from the crossed face onwards, of shape `(j, …)`; the piece of the split segment that
+keeps the id `seg` stays at its head.
 
 ### 5.4 Case B — the partner face is in a different region
 
@@ -284,7 +283,7 @@ region `r'` that owns `-seg` is not cut at all — it only has its boundary rela
 becoming `(-seg, -T)` — and rotated to start at `-T`, so it becomes the new `regions[0]`. Net
 region count `+1`, as required by invariant 4.
 
-### 5.5 Worked example (matches the paper)
+### 5.5 Worked example
 
 `n = 4`, word `x_1 x_2 x_4^{-1}`:
 
@@ -455,9 +454,9 @@ cannot be chosen independently — and it sits outside everything else.
 Permuting only the symbols actually present is complete. Drawability depends solely on the
 *relative order* of the punctures used: a generator line runs from a puncture to the boundary, so
 it is a slit rather than a separating chord, and an arc can always pass beneath an unused puncture
-without recording a letter. Verified over 32,640 words: drawability is invariant under every
-order-preserving relabelling (`{1,2,3} → {1,3,5}`, `{2,3,7}`, `{1,4,5}`, …). So mapping symbols
-onto a wider or gappier subset of `{1..n}` can never reach a configuration a permutation misses.
+without recording a letter. Drawability is therefore invariant under every order-preserving
+relabelling (`{1,2,3} → {1,3,5}`, `{2,3,7}`, `{1,4,5}`, …), so mapping symbols onto a wider or
+gappier subset of `{1..n}` can never reach a configuration a permutation misses.
 
 The same fact is why the answer at rank `max |letter|` and at any `k` above it agree, which is
 what makes the rank safe to default (§6.3) and lets `test/test_corpus.py` fix `rank=15` for
@@ -488,8 +487,8 @@ the drawing. Cost in practice is milliseconds for families of a few words of len
   symmetric, so the drawing order is an implementation detail. Checked over 2000 pairs.
 - **Monotone under sub-families.** If a family co-exists, so does every sub-family.
 - **Strictly stronger than drawing words separately.** `[1,2,1]` and `[3,2,3]` are each drawable
-  alone, but never together, under any permutation and any signs. Roughly 15% of sampled pairs of
-  individually-drawable words behave this way, so the test genuinely discriminates.
+  alone, but never together, under any permutation and any signs; so are `[1,2,1]` and
+  `[2,3,2,3]`. Both pairs are pinned as regression cases, so the test genuinely discriminates.
 
 ---
 
@@ -532,7 +531,8 @@ against that one, the differences are:
   with the same default.
 - **`demo.py`** and the `__main__` demo block in `coexistence.py`, both folded into the demo
   functions in `main.py`.
-- **`tex/`**, the LaTeX source of the paper, which is distributed separately.
+- **`tex/`**, a LaTeX write-up of the maths. It contained no code, and it is not maintained
+  any more; §3–§5 here are the surviving description of the encoding and the case analysis.
 
 One thing was reshaped rather than dropped. The three single-word entry points `evaluate`,
 `valid_assignment_of_signs` and `valid_permutation_and_assignment_of_signs` are gone, replaced
