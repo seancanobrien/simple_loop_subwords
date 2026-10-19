@@ -7,6 +7,10 @@ contribute the next letter the arc must cross a segment of the right line in the
 direction, and that segment must bound the region the arc's tip is currently in.
 `forward` performs one such crossing.
 
+An end of the arc may also lie on the boundary of the disk.  The boundary is treated as
+one more line, generator 0, which is cut into segments by the arc ends that land on it.
+An arc can start or end on a boundary segment, but never cross one.
+
 Faces
 -----
 A segment has two sides, and both are encoded in one signed integer: the *left* face of
@@ -15,27 +19,32 @@ positive generator, crossing from -k contributes an inverse.  Throughout this mo
 the variable `seg` is a signed **face**, and it is the face the arc crosses *from* --
 so `forward(state, 2)` and `forward(state, -2)` are different moves on one segment.
 
+A boundary segment has only one side, the inside of the disk, so it has a single face,
+written with its non-negative ID.  Segment 0 is the whole boundary to begin with, and
+its one face is 0 = -0.
+
 Regions
 -------
-Each region is a tuple of the signed faces on its boundary, read clockwise.  Only
-generator-line faces are listed; the arcs of the outer circle and the pieces of the
-drawn path that also bound the region are implicit.  Region tuples are **cyclic**:
-(-5, 6) and (6, -5) denote the same region, so they must not be compared with ==.
+Each region is a tuple of the signed faces on its boundary, read clockwise.  Generator
+faces and boundary faces are both listed; only the pieces of the drawn path that also
+bound the region are implicit.  Region tuples are **cyclic**: (-5, 6) and (6, -5)
+denote the same region, so they must not be compared with ==.
 
-By convention `regions[0]` is always the region holding the tip of the arc, and the tip
-sits at the junction between the last entry and the first entry of that tuple.  Every
-branch of `forward` finishes by rotating the new end-region so this holds; it is what
-makes the slicing in each branch read as "cut the boundary cycle here, re-anchor it
-there", and what lets the search layer deduplicate states.
+By convention, while an arc is in progress `regions[0]` is the region holding its tip,
+and the tip sits at the junction between the last entry and the first entry of that
+tuple.  Every branch of `forward` that leaves a tip finishes by rotating the new
+end-region so this holds; it is what makes the slicing in each branch read as "cut the
+boundary cycle here, re-anchor it there", and what lets the search layer deduplicate
+states.
 
 gen encoding
 ------------
 gen[k]  for k >= 1  stores gen[+k], the generator index carried by face +k.
 gen[-k] is always -gen[+k], so negative keys are never stored explicitly.
-gen[0]  is unused (segment IDs start at 1); stored as 0 as a placeholder.
+gen[0]  is 0: segment 0 is the boundary, and the boundary carries generator 0.
 
 Every segment cut off line j inherits gen = j, so both halves of a split segment go on
-contributing the same generator.
+contributing the same generator.  The boundary segments are exactly those with gen 0.
 
 State
 -----
@@ -48,12 +57,16 @@ Invariants
 These hold for every reachable state, and are the best way to test changes to
 `forward`:
 
-1. Each signed face appears exactly once across all regions.
-2. Faces come in pairs: +k is present if and only if -k is.
-3. One new segment per crossing: after c crossings there are n + c segments.
+1. Each face appears exactly once across all regions.
+2. Generator faces come in pairs: +k is present if and only if -k is.  Boundary faces
+   are unpaired, and never negative.
+3. One new segment per crossing, and one per arc end on the boundary: after c crossings
+   and b ends on the boundary there are n + c generator segments and 1 + b boundary
+   segments.
 4. An ordinary crossing adds one region; a crossing that *starts* an arc adds none,
-   because a slit does not disconnect.
-5. regions[0] is the end-region, anchored as above.
+   because a slit does not disconnect.  Starting on the boundary adds none; ending on
+   it adds one, because the arc then cuts its region along a chord.
+5. While an arc is in progress, regions[0] is the end-region, anchored as above.
 """
 
 from typing import NamedTuple
@@ -64,9 +77,9 @@ from typing import NamedTuple
 class State(NamedTuple):
     n:                    int                        # number of punctures
     regions:              tuple[tuple[int, ...], ...]
-    gen:                  tuple[int, ...]            # gen[0] unused; gen[k] = gen[+k] for k >= 1
+    gen:                  tuple[int, ...]            # gen[k] = gen[+k]; gen 0 is the boundary
     next_seg:             int                        # next fresh positive segment ID
-    first_crossing_done:  bool
+    arc_in_progress:      bool                       # is there a tip in regions[0]?
 
 
 # ------------------------------------------------------------------ constructor
@@ -76,26 +89,31 @@ def make_state(n: int) -> State:
     if n < 1:
         raise ValueError("Need at least 1 puncture.")
 
-    initial_region = tuple(val for k in range(1, n + 1) for val in (k, -k))
+    # The boundary (0) runs clockwise from the top of line n round to the top of line 1.
+    initial_region = (0,) + tuple(val for k in range(1, n + 1) for val in (k, -k))
 
-    # gen[k] = k for k = 1..n  (identity: gen[+k] = +k)
-    # gen[0] = 0 as an unused placeholder so that segment ID k maps to index k
-    gen = (0,) + tuple(range(1, n + 1))
+    # gen[k] = k for k = 0..n  (identity: gen[+k] = +k, and the boundary carries 0)
+    gen = tuple(range(n + 1))
 
     return State(
         n=n,
         regions=(initial_region,),
         gen=gen,
         next_seg=n + 1,
-        first_crossing_done=False,
+        arc_in_progress=False,
     )
 
 
 # ------------------------------------------------------------------ accessors
 
 def _gen(state: State, seg: int) -> int:
-    """Return the generator contributed by crossing signed segment seg."""
+    """Return the generator contributed by crossing signed segment seg (0 if boundary)."""
     return state.gen[abs(seg)] if seg > 0 else -state.gen[abs(seg)]
+
+
+def _is_boundary(state: State, seg: int) -> bool:
+    """True if seg is a face of the boundary, which can be started or ended on, never crossed."""
+    return state.gen[abs(seg)] == 0
 
 
 def _fresh_seg(state: State, old_seg: int) -> tuple[State, int]:
@@ -132,26 +150,29 @@ def _find_signed(regions: tuple[tuple[int, ...], ...], target: int) -> tuple[int
 def seg_possibilities_given_gen(state: State, generator: int, region_idx: int = 0) -> list[int]:
     """
     Return all signed segments in region_idx whose crossing contributes
-    generator to the word.
+    generator to the word.  Generator 0 gives the boundary faces, where an arc can end.
     """
     return [seg for seg in state.regions[region_idx] if _gen(state, seg) == generator]
 
 
 def gen_possibilities(state: State, region_idx: int = 0) -> list[int]:
-    """Return all signed generators available for crossing in region_idx."""
+    """Return all signed generators available in region_idx, with 0 for the boundary."""
     possible = set()
     for k in range(1, state.n + 1):
         if seg_possibilities_given_gen(state, -k, region_idx=region_idx):
             possible.add(-k)
         if seg_possibilities_given_gen(state, +k, region_idx=region_idx):
             possible.add(+k)
+    if seg_possibilities_given_gen(state, 0, region_idx=region_idx):
+        possible.add(0)
     return list(possible)
 
 
 def new_arc_possibilities(state: State, generator: int) -> list[tuple[int, int]]:
     """
     Return every (region_idx, seg) at which a *fresh* arc could start and make its
-    first crossing contribute generator.
+    first crossing contribute generator -- or, for generator 0, every boundary face
+    it could start on.
 
     A fresh arc may begin at a free interior point of any region, so unlike
     seg_possibilities_given_gen this scans every region, not just the end-region.
@@ -166,8 +187,12 @@ def new_arc_possibilities(state: State, generator: int) -> list[tuple[int, int]]
 
 def forward_new_arc(state: State, seg: int, region_idx: int = 0) -> State:
     """
-    Begin a new arc at a free interior point of regions[region_idx] and cross seg.
-    Returns a new State.  Raises ValueError if seg does not bound that region.
+    Begin a new arc in regions[region_idx] at the face seg, and return the new State.
+    Raises ValueError if seg does not bound that region.
+
+    If seg is a boundary face the arc starts *on* it, and nothing is crossed -- see
+    _start_on_boundary.  Otherwise the arc begins at a free interior point of the region
+    and crosses seg, as follows.
 
     This is the general form of the "first crossing" rule.  Because the arc starts at
     a free interior point, the cut is a *slit* rather than a chord: it does not
@@ -189,6 +214,9 @@ def forward_new_arc(state: State, seg: int, region_idx: int = 0) -> State:
     if seg not in region:
         raise ValueError(f"Segment {seg} does not bound region {region_idx} {list(region)}.")
 
+    if _is_boundary(state, seg):
+        return _start_on_boundary(state, seg, region_idx)
+
     seg_sgn = 1 if seg > 0 else -1
     state, T = _fresh_seg(state, seg)
     region = state.regions[region_idx]
@@ -209,14 +237,66 @@ def forward_new_arc(state: State, seg: int, region_idx: int = 0) -> State:
 
     return state._replace(
         regions=(end_region,) + regions[:pair_ri] + regions[pair_ri + 1:],
-        first_crossing_done=True,
+        arc_in_progress=True,
+    )
+
+
+def _start_on_boundary(state: State, b: int, region_idx: int) -> State:
+    """
+    Begin a new arc on the boundary face b of regions[region_idx].  Nothing is crossed.
+
+    The arc's start point splits b, and the tip waits there:
+
+        boundary face  b  splits clockwise into (b, T), tip between them
+
+    which is the partner-face rule of forward_new_arc, so the region is rotated to begin
+    at T and becomes the new end-region.  No region is cut, so the region count is
+    unchanged.  The arc's first crossing is then made by forward as an ordinary chord,
+    starting from this tip -- not as the slit an interior start makes.
+    """
+    state, T = _fresh_seg(state, b)
+    region = state.regions[region_idx]
+    i = region.index(b)
+
+    split = region[:i + 1] + (T,) + region[i + 1:]
+    end_region = split[i + 1:] + split[:i + 1]     # anchor at T, the tip just before it
+
+    return state._replace(
+        regions=(end_region,) + state.regions[:region_idx] + state.regions[region_idx + 1:],
+        arc_in_progress=True,
+    )
+
+
+def _end_on_boundary(state: State, b: int) -> State:
+    """
+    End the arc on the boundary face b of the end-region.  Nothing is crossed.
+
+    The arc runs from the tip to a point of b and stops there.  That is a chord, so the
+    end-region splits in two just as in case B of forward -- region[:i] plus the new
+    face, and region[i:] -- but there is no region on the far side to take the tip:
+
+        boundary face  b  splits clockwise into (T, b)
+
+    The arc is finished, so neither half is an end-region; both go to the back.
+    """
+    region = state.regions[0]
+    i = region.index(b)
+    state, T = _fresh_seg(state, b)
+
+    left  = region[:i] + (T,)
+    right = region[i:]
+
+    return state._replace(
+        regions=state.regions[1:] + (left, right),
+        arc_in_progress=False,
     )
 
 
 def forward(state: State, seg: int) -> State:
     """
     Cross the face seg, which must bound the end-region, and return the new State.
-    Raises ValueError if seg is not in the end-region.
+    Raises ValueError if seg is not in the end-region.  If seg is a boundary face the
+    arc is not crossing it but starting or ending on it.
 
     The arc runs from the tip to a point q in the interior of the crossed segment and
     passes through.  Two things happen: the segment is split at q, one piece keeping the
@@ -231,7 +311,9 @@ def forward(state: State, seg: int) -> State:
 
     Where the partner face -seg currently lives decides which branch applies:
 
-        the arc is starting here          a slit, not a chord -- see forward_new_arc
+        the arc is starting here            a slit, or a start on the boundary --
+                                            see forward_new_arc
+        seg is a boundary face              the arc ends on it -- see _end_on_boundary
         -seg in the end-region, after seg   case A, first sub-case
         -seg in the end-region, before seg  case A, second sub-case
         -seg in some other region           case B
@@ -247,10 +329,14 @@ def forward(state: State, seg: int) -> State:
     if seg not in region:
         raise ValueError(f"Segment {seg} is not in the end-region {list(region)}.")
 
-    # -- FIRST CROSSING -------------------------------------------------------
-    # The arc's start point is free, so this is a slit rather than a chord.
-    if not state.first_crossing_done:
+    # -- STARTING AN ARC ------------------------------------------------------
+    # No tip yet: start at a free point (a slit rather than a chord) or on the boundary.
+    if not state.arc_in_progress:
         return forward_new_arc(state, seg, region_idx=0)
+
+    # -- ENDING ON THE BOUNDARY -----------------------------------------------
+    if _is_boundary(state, seg):
+        return _end_on_boundary(state, seg)
 
     seg_sgn = 1 if seg > 0 else -1
     i = region.index(seg)
@@ -291,11 +377,12 @@ def state_str(state: State) -> str:
     """Human-readable state dump."""
     lines = ["State("]
     for i, r in enumerate(state.regions):
-        marker = "  <- END (path-end is just before index 0)" if i == 0 else ""
+        tip = i == 0 and state.arc_in_progress
+        marker = "  <- END (path-end is just before index 0)" if tip else ""
         lines.append(f"  [{i}] {list(r)}{marker}")
     lines.append(")")
     gen_display = {seg: _gen(state, seg) for region in state.regions for seg in region}
-    lines.append(f"gen                 = {gen_display}")
-    lines.append(f"next_seg            = {state.next_seg}")
-    lines.append(f"first_crossing_done = {state.first_crossing_done}")
+    lines.append(f"gen             = {gen_display}")
+    lines.append(f"next_seg        = {state.next_seg}")
+    lines.append(f"arc_in_progress = {state.arc_in_progress}")
     return "\n".join(lines)

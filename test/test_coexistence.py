@@ -60,12 +60,17 @@ def square_free_words(symbols, length, signed=True):
 
 
 def structurally_sound(state):
-    """The regions.py invariants: every face present exactly once, in +/- pairs."""
+    """
+    The regions.py invariants: every face present exactly once, generator faces in +/-
+    pairs, and boundary faces (gen 0) unpaired and never negative.
+    """
     faces = [f for region in state.regions for f in region]
-    ids = set(abs(f) for f in faces)
+    paired = [f for f in faces if state.gen[abs(f)] != 0]
+    ids = set(abs(f) for f in paired)
     return (len(faces) == len(set(faces))
-            and len(faces) == 2 * len(ids)
-            and all(k in faces and -k in faces for k in ids))
+            and len(paired) == 2 * len(ids)
+            and all(k in faces and -k in faces for k in ids)
+            and all(f >= 0 for f in faces if state.gen[abs(f)] == 0))
 
 
 def report(name, failures, total, detail=""):

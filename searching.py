@@ -35,6 +35,14 @@ present is complete: drawability depends solely on the relative order of the pun
 used, so relabelling onto a wider or gappier subset of {1..n} can never reach a
 configuration a permutation misses.
 
+The boundary
+------------
+A 0 as the first or last letter puts that end of the arc on the boundary of the disk:
+[0, 1, 2, -1, 0] is [1, 2, -1] drawn from the boundary back to the boundary.  To the
+sweep, 0 is just one more generator -- `regions.py` gives the boundary generator 0 --
+so it needs no special step.  It has no sign to choose, and it is never relabelled,
+since the boundary is not a puncture.
+
 Scope
 -----
 The answer is necessary but not sufficient for membership in the orbit Q = B_n . x_1:
@@ -68,13 +76,14 @@ def _sweep(n: int, word: list[int], signs: list[int]) -> set:
     Every configuration reachable by drawing word in a disk with n punctures.
 
     signs[j] pins the sign of word[j] to +1 or -1; 0 leaves it free, in which case both
-    signs are explored and their configurations merged.  Returns the empty set as soon
-    as the word becomes undrawable.
+    signs are explored and their configurations merged.  A 0 letter has no sign, so its
+    entry is ignored.  Returns the empty set as soon as the word becomes undrawable.
     """
     states = {make_state(n)}
     for letter, pinned in zip(word, signs):
         magnitude = abs(letter)
-        options = (magnitude, -magnitude) if pinned == 0 else (pinned * magnitude,)
+        # A set, so that the boundary's {0, -0} is the single option it should be.
+        options = {magnitude, -magnitude} if pinned == 0 else {pinned * magnitude}
         states = set().union(*(_advance(states, option) for option in options))
         if not states:
             return set()
@@ -89,10 +98,13 @@ def _recover_signs(n: int, word: list[int]) -> list[int] | None:
     Greedy pinning is exact because a merged sweep is the union over every completion of
     the pinned prefix: if it leaves a live frontier then some completion of that prefix
     is drawable, so a sign can always be committed to without looking ahead.  Costs at
-    most 2 * len(word) sweeps, against the 2^len(word) of enumerating sign paths.
+    most 2 * len(word) sweeps, against the 2^len(word) of enumerating sign paths.  A 0
+    letter has no sign, so it is skipped.
     """
     signs = [0] * len(word)
     for j in range(len(word)):
+        if word[j] == 0:
+            continue
         for sign in (1, -1):
             signs[j] = sign
             if _sweep(n, word, signs):
@@ -108,10 +120,13 @@ def _recover_signs(n: int, word: list[int]) -> list[int] | None:
 def _validate_word(word: list[int], rank: int | None = None,
                    check_for_squares: bool = True) -> None:
     """
-    Check that word is a reduced word over the generators x_1 ... x_rank.
+    Check that word is a reduced word over the generators x_1 ... x_rank, with an
+    optional 0 at either end.
 
-    Letters are non-zero integers, x_j written as j and its inverse as -j.  rank=None
-    checks the shape of the word without imposing an upper bound on its symbols.
+    Letters are integers, x_j written as j and its inverse as -j.  A 0 puts that end of
+    the arc on the boundary of the disk, so it may only be the first or the last letter,
+    and at least one letter must be something other than 0.  rank=None checks the shape
+    of the word without imposing an upper bound on its symbols.
 
     Squares are rejected by default.  The algorithm will happily draw x_j x_j -- an
     ever-growing spiral around a single puncture -- but such words do not arise as
@@ -119,17 +134,22 @@ def _validate_word(word: list[int], rank: int | None = None,
     Pass check_for_squares=False to admit them anyway.
 
     Raises:
-        TypeError:  a letter is not a non-zero integer.
-        ValueError: the word is empty, has a letter outside +/-1 ... +/-rank, is not
-                    reduced, or (unless allowed) contains a square.
+        TypeError:  a letter is not an integer.
+        ValueError: the word is empty, is all 0s, has a 0 anywhere but its ends, has a
+                    letter outside +/-1 ... +/-rank, is not reduced, or (unless allowed)
+                    contains a square.
     """
     if not isinstance(word, list) or not word:
         raise ValueError("word must be a non-empty list")
     for i, s in enumerate(word):
-        if not isinstance(s, int) or s == 0:
-            raise TypeError(f"word[{i}] must be a non-zero integer, got {s!r}")
+        if not isinstance(s, int):
+            raise TypeError(f"word[{i}] must be an integer, got {s!r}")
+        if s == 0 and 0 < i < len(word) - 1:
+            raise ValueError(f"word[{i}] is 0, but the boundary can only be the first or last letter")
         if rank is not None and abs(s) > rank:
             raise ValueError(f"word[{i}] has abs value {abs(s)} > rank {rank}")
+    if not any(word):
+        raise ValueError("word must have a letter other than 0")
     for i in range(len(word) - 1):
         if word[i] == -word[i + 1]:
             raise ValueError(f"word is not reduced at positions {i}, {i + 1}")
@@ -165,12 +185,17 @@ def _sign_spec(word: list[int], respect_signs: bool) -> list[int]:
 
 
 def _relabellings(word: list[int], permute: bool):
-    """Yield (mapping, relabelled_word) for each permutation of the symbols present."""
-    symbols = sorted({abs(x) for x in word})
+    """
+    Yield (mapping, relabelled_word) for each permutation of the symbols present.
+
+    The boundary, 0, is not a puncture: it is never relabelled and is left out of mapping.
+    """
+    symbols = sorted({abs(x) for x in word} - {0})
     perms = itertools.permutations(symbols) if permute else (tuple(symbols),)
     for perm in perms:
         mapping = dict(zip(symbols, perm))
-        yield mapping, [mapping[abs(x)] * (1 if x > 0 else -1) for x in word]
+        relabel = {0: 0, **mapping}
+        yield mapping, [relabel[abs(x)] * (1 if x > 0 else -1) for x in word]
 
 
 # ------------------------------------------------------------------ public API
@@ -189,11 +214,17 @@ def can_exist(word: list[int], n: int | None = None,
     free.  Permuting costs (number of symbols)! sweeps, so pass permute=False when the
     labelling is meant as given.
 
+    A 0 as the first or last letter puts that end of the arc on the boundary.
+
     >>> can_exist([1, 2, 1, 3], permute=False, respect_signs=True)   # exactly as written
     False
     >>> can_exist([1, 2, 1, 3], permute=False)                       # signs free
     True
     >>> can_exist([1, 2, 1, 3, 2, 3])                                # signs and labels free
+    False
+    >>> can_exist([-1, 2], permute=False, respect_signs=True)        # free start
+    True
+    >>> can_exist([0, -1, 2], permute=False, respect_signs=True)     # start on the boundary
     False
     """
     n = _resolve_rank(word, n)

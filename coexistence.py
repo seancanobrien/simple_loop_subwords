@@ -26,6 +26,11 @@ Starting a fresh arc is `regions.forward_new_arc`: the arc's start point is free
 first cut is a slit and does not disconnect its region.  Every region is a candidate
 starting region, so that step branches over all of them.
 
+A word may also start or end with 0, putting that end of its arc on the boundary of the
+disk.  The boundary is generator 0 to `regions.py`, so this needs no special step: a
+leading 0 starts the arc on any boundary face of any region, and a trailing 0 ends it on
+a boundary face of the end-region.  Any number of words may touch the boundary.
+
 Signs and permutations
 ----------------------
 Sign choice is fused into the same breadth-first sweep as the choice of crossing: at
@@ -61,7 +66,8 @@ def _advance(states: set, letter: int) -> set:
 
 
 def _advance_new_arc(states: set, letter: int) -> set:
-    """Start a fresh arc -- in any region -- whose first crossing gives letter."""
+    """Start a fresh arc -- in any region -- whose first crossing gives letter, or which
+    starts on the boundary if letter is 0."""
     return {
         forward_new_arc(s, seg, ri)
         for s in states
@@ -76,15 +82,17 @@ def _reachable(n: int, words: list[list[int]], signs: list[list[int]]) -> set:
     Every configuration reachable by drawing each word as a separate arc, in order.
 
     signs[k][j] pins the sign of words[k][j] to +1 or -1; 0 leaves it free, in which
-    case both signs are explored and their configurations merged.  Returns the empty
-    set as soon as the family becomes undrawable.
+    case both signs are explored and their configurations merged.  A 0 letter has no
+    sign, so its entry is ignored.  Returns the empty set as soon as the family becomes
+    undrawable.
     """
     states = {make_state(n)}
     for word, word_signs in zip(words, signs):
         for pos, letter in enumerate(word):
             magnitude = abs(letter)
             fixed = word_signs[pos]
-            options = (magnitude, -magnitude) if fixed == 0 else (fixed * magnitude,)
+            # A set, so that the boundary's {0, -0} is the single option it should be.
+            options = {magnitude, -magnitude} if fixed == 0 else {fixed * magnitude}
             step = _advance_new_arc if pos == 0 else _advance
             states = set().union(*(step(states, option) for option in options))
             if not states:
@@ -99,11 +107,14 @@ def _recover_signs(n: int, words: list[list[int]]) -> list[list[int]] | None:
 
     Greedy pinning is exact here because drawability of a partially pinned family is
     monotone: if a partial assignment is still feasible, some completion of it is too.
-    Costs at most 2 * (total word length) sweeps.
+    Costs at most 2 * (total word length) sweeps.  A 0 letter has no sign, so it is
+    skipped.
     """
     signs = [[0] * len(w) for w in words]
     for k, word in enumerate(words):
         for j in range(len(word)):
+            if word[j] == 0:
+                continue
             for sign in (1, -1):
                 signs[k][j] = sign
                 if _reachable(n, words, signs):
@@ -152,13 +163,18 @@ def _resolve_family(words: list[list[int]], n: int | None) -> tuple[list[list[in
 
 
 def _relabellings(words: list[list[int]], permute: bool):
-    """Yield (mapping, relabelled_words) for each permutation of the shared symbols."""
-    symbols = sorted({abs(x) for word in words for x in word})
+    """
+    Yield (mapping, relabelled_words) for each permutation of the shared symbols.
+
+    The boundary, 0, is not a puncture: it is never relabelled and is left out of mapping.
+    """
+    symbols = sorted({abs(x) for word in words for x in word} - {0})
     perms = itertools.permutations(symbols) if permute else (tuple(symbols),)
     for perm in perms:
         mapping = dict(zip(symbols, perm))
+        relabel = {0: 0, **mapping}
         yield mapping, [
-            [mapping[abs(x)] * (1 if x > 0 else -1) for x in word] for word in words
+            [relabel[abs(x)] * (1 if x > 0 else -1) for x in word] for word in words
         ]
 
 
@@ -189,6 +205,8 @@ def can_coexist(words: list[list[int]], n: int | None = None,
     One permutation applies to every word at once -- they share a disk, so their
     labellings cannot be chosen independently.  It costs (number of symbols)! sweeps, so
     pass permute=False when the labelling is meant as given.
+
+    A 0 as the first or last letter of a word puts that end of its arc on the boundary.
 
     >>> can_coexist([[1, 2, 1], [2, 3, 2]])
     True
