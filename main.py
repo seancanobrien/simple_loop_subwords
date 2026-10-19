@@ -9,8 +9,8 @@ prints a summary of what is available.
 
 Which words in the free group F_n can be drawn as embedded (non-self-crossing) arcs in a
 disk with n punctures?  A word that cannot be drawn cannot be a subword of any simple
-loop, which is what makes the question useful: it rules words out of the braid orbit
-Q = B_n . x_1.  See README.md for orientation and algorithm_details.md for the details.
+word, which is what makes the question useful.  See docs/algorithm.md for how the
+algorithm works and docs/implementation.md for how the code implements it.
 
 Words are lists of integers, with x_j written as j and its inverse as -j, so
 x_1 x_2 x_1^-1 is [1, 2, -1].  A 0 at either end puts that end of the arc on the boundary
@@ -130,7 +130,7 @@ def demo_searching() -> None:
     for word in ([-1, 2], [0, -1, 2]):
         call = f"can_exist({word}, permute=False, respect_signs=True)"
         print(f"  {call:66} = {can_exist(word, permute=False, respect_signs=True)}")
-    print("The words of Q are loops based on the boundary, so both ends can go there:")
+    print("Simple words are loops based on the boundary, so both ends can go there:")
     print(f"  can_exist_witness([0, 1, 2, 1, 0]) = {can_exist_witness([0, 1, 2, 1, 0])}")
     print("while [1, 2, 1, 2] is drawable, but never as a loop based on the boundary:")
     for word in ([1, 2, 1, 2], [0, 1, 2, 1, 2, 0]):
