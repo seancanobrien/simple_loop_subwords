@@ -1,28 +1,74 @@
 #!/usr/bin/env bash
-# Compile each figure in src/ to an SVG beside this script.
+# Render the figures in docs/ from their Inkscape sources.  See README.md beside this script.
 #
-# src/<name>.tex is the body of one display (panels joined by \mapsto, + and so on);
-# src/panels/ holds the TikZ panels it inputs, copied from the writeup.  Needs pdflatex
-# (with tikz and contour) and pdftocairo (poppler-utils).
+#     svg_src/<panel>.svg   --svg2tikz-->   build/panels/<panel>.tex
+#     layouts/<figure>.tex  --pdflatex-->   build/<figure>.pdf  --pdftocairo-->  <figure>.svg
 #
-#     bash docs/figs/build.sh            # every figure
-#     bash docs/figs/build.sh case_start # just these
+# svg2tikz runs with the settings of the writeup's svg watcher, so a panel converts exactly
+# as it does there.  Needs svg2tikz (set SVG2TIKZ if it is not on PATH), pdflatex with tikz
+# and contour, and pdftocairo (poppler-utils).
+#
+#     bash docs/figs/build.sh               # every figure whose sources changed
+#     bash docs/figs/build.sh encoding      # just these, unconditionally
+#     bash docs/figs/build.sh -f            # every figure, unconditionally
+#     bash docs/figs/build.sh -w            # keep rebuilding on every save, until Ctrl-C
 
-set -euo pipefail
+set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 build="$here/build"
-mkdir -p "$build"
+svg2tikz="${SVG2TIKZ:-svg2tikz}"
 
-if [ "$#" -gt 0 ]; then
-    names=("$@")
-else
-    names=()
-    for f in "$here"/src/*.tex; do names+=("$(basename "$f" .tex)"); done
-fi
+die() { echo "$*" >&2; exit 1; }
 
-for name in "${names[@]}"; do
-    cat > "$build/wrap_$name.tex" <<EOF
+command -v "$svg2tikz" > /dev/null \
+    || die "svg2tikz not found: pip install svg2tikz, or set SVG2TIKZ=/path/to/svg2tikz"
+command -v pdflatex > /dev/null || die "pdflatex not found"
+command -v pdftocairo > /dev/null || die "pdftocairo not found (it is in poppler-utils)"
+
+# The panels a layout inputs, as panels/<panel>.tex.
+panels_of() {
+    grep -o 'panels/[^}]*\.tex' "$here/layouts/$1.tex" | sed 's|^panels/||; s|\.tex$||' | sort -u
+}
+
+# svg_src/<panel>.svg -> build/panels/<panel>.tex, if the svg is newer.
+convert_panel() {
+    local p=$1 svg="$here/svg_src/$1.svg" out="$build/panels/$1.tex"
+    [ -f "$svg" ] || { echo "missing svg_src/$p.svg" >&2; return 1; }
+    [ "$out" -nt "$svg" ] && return 0
+    local args=("$svg" -t raw --markings interpret --arrow stealth)
+    # codeonly drops the \definecolor lines, so take them from a figonly run.
+    "$svg2tikz" "${args[@]}" --codeoutput figonly --output "$build/panels/$p.fig" \
+        && "$svg2tikz" "${args[@]}" --codeoutput codeonly --output "$build/panels/$p.code" \
+        || { echo "svg2tikz failed on svg_src/$p.svg" >&2; return 1; }
+    { grep '^[[:space:]]*\\definecolor' "$build/panels/$p.fig"; echo; cat "$build/panels/$p.code"; } > "$out"
+    rm -f "$build/panels/$p.fig" "$build/panels/$p.code"
+}
+
+# True if <figure>.svg is missing or older than its layout, its panels or this script.  A
+# failed build counts as an attempt, so watch mode does not retry it until something changes.
+is_stale() {
+    local f=$1 ref="$here/$1.svg" p
+    [ -f "$ref" ] || return 0
+    [ "$build/$f.failed" -nt "$ref" ] && ref="$build/$f.failed"
+    [ "$here/layouts/$f.tex" -nt "$ref" ] && return 0
+    [ "$here/build.sh" -nt "$ref" ] && return 0
+    for p in $(panels_of "$f"); do
+        [ "$here/svg_src/$p.svg" -nt "$ref" ] && return 0
+    done
+    return 1
+}
+
+build_figure() {
+    local f=$1 p
+    [ -f "$here/layouts/$f.tex" ] || { echo "no such figure: layouts/$f.tex" >&2; return 1; }
+    for p in $(panels_of "$f"); do
+        convert_panel "$p" || { touch "$build/$f.failed"; return 1; }
+    done
+    # \todonote{...} is for TODO text in an Inkscape panel: wrapped to the width of a panel
+    # (or the optional width), red, and placed so that the note sits above the drawing when
+    # the text's baseline in Inkscape is just above it.
+    cat > "$build/$f.tex" <<EOF
 \\documentclass[border=4pt]{standalone}
 \\usepackage{amsmath,amssymb}
 \\usepackage{tikz}
@@ -33,14 +79,60 @@ for name in "${names[@]}"; do
     \\input{#2}
   \\end{tikzpicture}%
 }
+\\newcommand{\\todonote}[2][2.3cm]{%
+  \\parbox[b]{#1}{\\raggedright\\tiny\\color{red}\\textbf{TODO:} #2}%
+}
 \\pagecolor{white}
 \\begin{document}
-\$\\displaystyle \\input{$name.tex}\$
+\$\\displaystyle \\input{../layouts/$f.tex}\$
 \\end{document}
 EOF
-    (cd "$here/src" && pdflatex -interaction=nonstopmode -halt-on-error \
-        -output-directory="$build" "$build/wrap_$name.tex" > /dev/null) \
-        || { echo "pdflatex failed on $name; see $build/wrap_$name.log" >&2; exit 1; }
-    pdftocairo -svg "$build/wrap_$name.pdf" "$here/$name.svg"
-    echo "$name.svg"
+    (cd "$build" && pdflatex -interaction=nonstopmode -halt-on-error "$f.tex" > /dev/null) \
+        && pdftocairo -svg "$build/$f.pdf" "$build/$f.svg" \
+        || { echo "failed on $f; see $build/$f.log" >&2; touch "$build/$f.failed"; return 1; }
+    {
+        head -n 1 "$build/$f.svg"
+        echo "<!-- Generated by build.sh from layouts/$f.tex and svg_src/. Do not edit: text is outlined. -->"
+        tail -n +2 "$build/$f.svg"
+    } > "$here/$f.svg"
+    rm -f "$build/$f.failed"
+    echo "$f.svg"
+}
+
+force=0 watch=0 names=()
+for a in "$@"; do
+    case $a in
+        -f|--force) force=1 ;;
+        -w|--watch) watch=1 ;;
+        -h|--help) sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 0 ;;
+        -*) die "unknown option: $a" ;;
+        *) names+=("$(basename "$a" .tex)") ;;
+    esac
 done
+if [ ${#names[@]} -gt 0 ]; then
+    [ $watch -eq 1 ] || force=1
+else
+    for l in "$here"/layouts/*.tex; do names+=("$(basename "$l" .tex)"); done
+fi
+
+mkdir -p "$build/panels"
+
+# One pass over the figures; returns non-zero if any failed.
+run() {
+    local f status=0 todo=()
+    for f in "${names[@]}"; do
+        if [ $force -eq 1 ] || is_stale "$f"; then todo+=("$f"); fi
+    done
+    [ ${#todo[@]} -gt 0 ] || return 0
+    [ $watch -eq 1 ] && sleep 1    # let the editor finish writing the file
+    for f in "${todo[@]}"; do build_figure "$f" || status=1; done
+    return $status
+}
+
+if [ $watch -eq 1 ]; then
+    echo "watching svg_src/ and layouts/; Ctrl-C to stop"
+    run
+    while sleep 1; do run; done
+else
+    run
+fi

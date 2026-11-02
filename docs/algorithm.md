@@ -269,6 +269,8 @@ start point splits $b$ into $(b, T)$, and the head waits between the two:
 Nothing is cut. Unlike a free start, though, the tail is attached to the boundary, so the first
 crossing is a chord, by one of the continuing cases, and adds a region.
 
+<p align="center"><img src="figs/case_boundary_start.svg" width="375" alt="Starting on the boundary: rho maps to rho prime, the boundary face b split into b and T with the head between them"></p>
+
 > **Figure TODO.** ρ with a boundary face $b$ drawn distinctly (e.g. heavier or coloured)
 > ↦ $\rho'$, with $b$ split into $b$ and $T$ and the head emerging between them, pointing into
 > the region.
@@ -289,6 +291,8 @@ but there is no region beyond the boundary to take the head, and the arc is fini
 ```math
 \rho \mapsto (\rho_1, \ldots, \rho_{i-1},\ T) + (\rho_i, \ldots, \rho_k) = \rho'_L + \rho'_R
 ```
+
+<p align="center"><img src="figs/case_boundary_end.svg" width="545" alt="Ending on the boundary: rho maps to rho prime L plus rho prime R, neither holding the head"></p>
 
 > **Figure TODO.** As the $\rho \mapsto \rho'_L + \rho'_R$ part of the ρ ≠ τ figure, with no τ:
 > the arc runs from the head to a boundary face $b$ and stops; $b$ splits into $T$ (in
