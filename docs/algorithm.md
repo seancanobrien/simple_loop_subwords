@@ -77,7 +77,8 @@ region diagram, and the head emerges between `-1` and `-4`. The tail of the arc 
 <p align="center"><img src="figs/first_crossing.svg" width="640" alt="Drawing x1: the disk, its region diagram, and the region diagram after the crossing"></p>
 
 > **Figure TODO.** Add `0` between `-3` and `1` in the middle diagram, and between `-3` and `4`
-> in the right-hand one.
+> in the right-hand one. Optionally, label the boundary of the disk `0`, as in the encoding
+> figure.
 
 ```
 (-4, 2, -2, 3, -3, 0, 4, 1, -1)        {1: x1, 2: x2, 3: x3, 4: x1}

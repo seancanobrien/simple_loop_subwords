@@ -283,4 +283,20 @@
        transform="matrix(0,-1,-1,0,0,0)"
        r="0.46408191" />
   </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer_todo"
+     inkscape:label="TODO">
+    <text
+       xml:space="preserve"
+       style="font-size:0.9px;line-height:1.25;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';fill:#ff0000;fill-opacity:1;stroke:none"
+       x="35.6029"
+       y="56.7311"
+       id="todo_note"
+       inkscape:label="todo_note"><tspan
+         sodipodi:role="line"
+         x="35.6029"
+         y="56.7311"
+         id="todo_note_tspan">\todonote{(optional, to match the encoding figure) label the boundary of the disk $0$, on the left}</tspan></text>
+  </g>
 </svg>
