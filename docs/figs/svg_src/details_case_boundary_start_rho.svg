@@ -24,9 +24,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="16"
-     inkscape:cx="279.53125"
-     inkscape:cy="349.1875"
+     inkscape:zoom="5.6568543"
+     inkscape:cx="296.89646"
+     inkscape:cy="244.83572"
      inkscape:window-width="1920"
      inkscape:window-height="1041"
      inkscape:window-x="0"
@@ -387,7 +387,7 @@
     </g>
     <path
        style="fill:none;stroke:#000000;stroke-width:0.2;stroke-dasharray:none;stroke-dashoffset:0"
-       d="m 79.130564,78.227139 c -0.588287,-1.535827 -0.984327,-3.145181 -1.175951,-4.778622 -0.203637,-1.735834 -0.176247,-3.498628 0.08122,-5.227298"
+       d="m 79.130564,78.227139 c -0.588287,-1.535828 -0.984326,-3.145182 -1.175951,-4.778622 -0.203637,-1.735834 -0.176248,-3.498628 0.08122,-5.227298"
        id="path8"
        inkscape:path-effect="#path-effect11"
        inkscape:original-d="m 79.130564,78.227139 c -0.171498,-2.697197 -1.764848,-2.140917 -1.175951,-4.778622 0.572642,-2.564902 -0.199411,-4.478946 0.08122,-5.227298"
@@ -555,9 +555,9 @@
        inkscape:rounded="0"
        inkscape:randomized="0"
        d="m 54.435123,67.141785 -1.238919,0.292163 0.366439,-1.219017 z"
-       inkscape:transform-center-x="-0.041037254"
-       inkscape:transform-center-y="-0.15557276"
-       transform="matrix(-0.41787389,0.14234823,0.1423629,0.41776876,90.827894,37.305712)" />
+       inkscape:transform-center-x="0.041037239"
+       inkscape:transform-center-y="0.15557436"
+       transform="matrix(0.41787389,-0.14234823,-0.1423629,-0.41776876,64.998733,108.73559)" />
     <text
        xml:space="preserve"
        style="font-size:1.05833px;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';text-align:start;writing-mode:tb-rl;direction:ltr;text-anchor:start;fill:#000000;stroke:#000000;stroke-width:0.2"
@@ -582,21 +582,29 @@
          x="79.77861"
          y="95.896873"
          id="tspan4">$\rho$</tspan></text>
-  </g>
-  <g
-     inkscape:groupmode="layer"
-     id="layer_todo"
-     inkscape:label="TODO">
     <text
        xml:space="preserve"
-       style="font-size:0.9px;line-height:1.25;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';fill:#ff0000;fill-opacity:1;stroke:none"
-       x="68.7130"
-       y="66.1064"
-       id="todo_note"
-       inkscape:label="todo_note"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:0.763157px;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       x="79.597244"
+       y="63.710873"
+       id="text2-3"
+       transform="scale(0.9999339,1.0000661)"><tspan
          sodipodi:role="line"
-         x="68.7130"
-         y="66.1064"
-         id="todo_note_tspan">\todonote{placeholder (copy of case 0). Draw a boundary face $b = \rho_i$ distinctly (heavier or coloured)}</tspan></text>
+         style="font-size:0.763157px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+         x="79.597244"
+         y="63.710873"
+         id="tspan2-6">{\contour{white}{$\scriptscriptstyle 0$}}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+       x="-66.582069"
+       y="80.683205"
+       id="text_leadsto"
+       transform="rotate(-90)"><tspan
+         sodipodi:role="line"
+         style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+         x="-66.582069"
+         y="80.683205"
+         id="text_leadsto_tspan">{\contour{white}{$\scriptscriptstyle \leadsto$}}</tspan></text>
   </g>
 </svg>

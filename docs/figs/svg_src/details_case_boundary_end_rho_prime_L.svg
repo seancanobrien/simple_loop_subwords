@@ -25,8 +25,8 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="8"
-     inkscape:cx="292.5625"
-     inkscape:cy="371.75"
+     inkscape:cx="292.625"
+     inkscape:cy="356.75"
      inkscape:window-width="1920"
      inkscape:window-height="1041"
      inkscape:window-x="0"
@@ -518,7 +518,30 @@
          style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
          x="83.308746"
          y="90.860168"
-         id="tspan31">{\contour{white}{$\scriptscriptstyle \varepsilon T$}}</tspan></text>
+         id="tspan31">{\contour{white}{$\scriptscriptstyle T$}}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+       x="91.160197"
+       y="-84.279195"
+       id="text_leadsto"
+       transform="rotate(90)"><tspan
+         sodipodi:role="line"
+         style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+         x="91.160197"
+         y="-84.279195"
+         id="text_leadsto_tspan">{\contour{white}{$\scriptscriptstyle \leadsto$}}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+       x="84.029516"
+       y="94.984544"
+       id="text_zero"><tspan
+         sodipodi:role="line"
+         style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+         x="84.029516"
+         y="94.984544"
+         id="text_zero_tspan">{\contour{white}{$\scriptscriptstyle 0$}}</tspan></text>
     <path
        id="path32"
        style="fill:none;fill-opacity:1;stroke:#666666;stroke-width:0.260745;stroke-dasharray:none;stroke-opacity:1"
@@ -532,29 +555,13 @@
     <text
        xml:space="preserve"
        style="font-size:1.05833px;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';text-align:start;writing-mode:tb-rl;direction:ltr;text-anchor:start;fill:#000000;stroke-width:0.2;stroke-dasharray:0.2, 0.600001"
-       x="79.660149"
+       x="78.601814"
        y="95.852013"
        id="text4"><tspan
          sodipodi:role="line"
          id="tspan4"
          style="stroke-width:0.2"
-         x="79.660149"
+         x="78.601814"
          y="95.852013">$\rho^\prime_L$</tspan></text>
-  </g>
-  <g
-     inkscape:groupmode="layer"
-     id="layer_todo"
-     inkscape:label="TODO">
-    <text
-       xml:space="preserve"
-       style="font-size:0.9px;line-height:1.25;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';fill:#ff0000;fill-opacity:1;stroke:none"
-       x="68.7130"
-       y="66.9000"
-       id="todo_note"
-       inkscape:label="todo_note"><tspan
-         sodipodi:role="line"
-         x="68.7130"
-         y="66.9000"
-         id="todo_note_tspan">\todonote{placeholder (copy of case 2). $T$, a piece of $b$, in place of $\varepsilon T$; no head}</tspan></text>
   </g>
 </svg>

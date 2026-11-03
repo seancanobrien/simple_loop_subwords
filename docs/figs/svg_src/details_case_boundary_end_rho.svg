@@ -24,11 +24,11 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="22.627417"
-     inkscape:cx="292.54333"
-     inkscape:cy="344.53778"
+     inkscape:zoom="8"
+     inkscape:cx="300.6875"
+     inkscape:cy="385.5625"
      inkscape:window-width="1920"
-     inkscape:window-height="1041"
+     inkscape:window-height="1062"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="0"
@@ -498,6 +498,29 @@
          x="78.971184"
          y="68.429192"
          id="tspan75240">{\contour{white}{$\scriptscriptstyle \rho_i$}}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+       x="-66.806580"
+       y="80.513978"
+       id="text_leadsto"
+       transform="rotate(-90)"><tspan
+         sodipodi:role="line"
+         style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+         x="-66.806580"
+         y="80.513978"
+         id="text_leadsto_tspan">{\contour{white}{$\scriptscriptstyle \leadsto$}}</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+       x="79.567699"
+       y="64.114642"
+       id="text_zero"><tspan
+         sodipodi:role="line"
+         style="font-size:0.763157px;writing-mode:tb-rl;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.05;stroke-dasharray:none;stroke-opacity:1"
+         x="79.567699"
+         y="64.114642"
+         id="text_zero_tspan">{\contour{white}{$\scriptscriptstyle 0$}}</tspan></text>
     <path
        sodipodi:type="star"
        style="fill:#2a7fff;fill-opacity:1;stroke:#2a7fff;stroke-width:0.299857;stroke-dasharray:none;stroke-opacity:1"
@@ -573,29 +596,13 @@
     <text
        xml:space="preserve"
        style="font-size:1.05833px;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';text-align:start;writing-mode:tb-rl;direction:ltr;text-anchor:start;fill:#000000;stroke-width:0.2;stroke-dasharray:0.2, 0.600001"
-       x="79.660149"
+       x="79.130981"
        y="95.852013"
        id="text4"><tspan
          sodipodi:role="line"
          id="tspan4"
          style="stroke-width:0.2"
-         x="79.660149"
+         x="79.130981"
          y="95.852013">$\rho$</tspan></text>
-  </g>
-  <g
-     inkscape:groupmode="layer"
-     id="layer_todo"
-     inkscape:label="TODO">
-    <text
-       xml:space="preserve"
-       style="font-size:0.9px;line-height:1.25;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';fill:#ff0000;fill-opacity:1;stroke:none"
-       x="68.7130"
-       y="66.1064"
-       id="todo_note"
-       inkscape:label="todo_note"><tspan
-         sodipodi:role="line"
-         x="68.7130"
-         y="66.1064"
-         id="todo_note_tspan">\todonote{placeholder (copy of case 2). The arc runs from the head to a boundary face $b = \rho_i$ and stops}</tspan></text>
   </g>
 </svg>

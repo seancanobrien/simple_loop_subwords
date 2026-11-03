@@ -6,13 +6,14 @@ maps onto the code is in [implementation.md](implementation.md).
 ## The question
 
 Take the disk with $n$ punctures $p_1, \ldots, p_n$ on the real axis, and a *λ-line*
-$\lambda_k$ from each $p_k$ up to the boundary point $+i$. A path spells a word in $F_n$:
+$\lambda_k$ from each $p_k$ up to the boundary point at the top of the circle. A path spells a word in $F_n$:
 crossing $\lambda_k$ from left to right records $x_k$, and from right to left $x_k^{-1}$.
 
 Every subword of a simple word is spelled by an embedded (non-self-crossing) arc. The
-algorithm decides whether a word can be drawn as such an arc; if it cannot, it is a subword of
-no simple word. Each end of the arc is either free, at an interior point, or on the boundary of
-the disk, which a `0` at that end of the word asks for.
+algorithm decides whether a word can be drawn as such an arc.
+If it cannot, it is not a subword of any simple word.
+Each end of the arc is either free, at an interior point, or on the boundary of
+the disk, which is encoded using a `0` at the start or end of the word.
 
 ## An example
 
@@ -25,8 +26,9 @@ segments of $\lambda_1$ and $\lambda_3$. It can only leave by crossing one of th
 $\lambda_2$ is out of reach and $x_1 x_3 x_2$ cannot be drawn. The same picture rules out
 $x_i x_k x_j$ for every $i < j < k$.
 
-The algorithm automates this: as the arc is drawn it cuts the disk into regions, and it records
-which faces bound the region holding the head. In general a letter can be drawn by crossing
+The algorithm automates this.
+As the arc is drawn it cuts the disk into regions, and it records
+which faces bound the region holding the head. In general, a letter can be drawn by crossing
 any of several segments of one λ-line, and the choice changes the drawing. A word does not
 determine a drawing, but a sequence of segment-face crossings does.
 
@@ -37,21 +39,17 @@ integer $s$: the left face is $+s$ and crossing from it contributes a positive l
 face is $-s$ and contributes a negative one. Initially $\lambda_k$ is one segment, with faces
 $\pm k$.
 
-**The boundary.** The boundary of the disk, less the point $+i$, is treated as one more line,
+**The boundary.** The boundary of the disk, less the point at the top of the circle, is treated as one more line,
 for the letter `0`. It starts as the single segment `0` and is cut by arc ends that land on it.
-It has one face per segment, the inside of the disk, so `0 = -0`, and it is never crossed: an
-arc can only start or end on it.
+It has one face per segment, the inside of the disk, so `0 = -0`, and it is never crossed.
+An arc can only start or end on it.
 
 **Regions.** A region is recorded as its *region tuple*: the faces on its boundary, read
-clockwise. Tuples are cyclic, and the pieces of the arc on a region's boundary are left
-implicit. Drawn as a circle, a region tuple is a *region diagram*. Initially there is one
-region, `(0, 1, -1, 2, -2, 3, -3)`: along the boundary, then down and back up each λ-line.
+clockwise. Tuples are cyclic, apart from the tuple which corresponds to the region which contains the head of the arc.
+Drawn as a circle, a region tuple is a *region diagram*. Initially there is one
+region, `(0, 1, -1, 2, -2, 3, -3)`. This reads around the boundary in a clockwise manner, then down and back up each λ-line.
 
 <p align="center"><img src="figs/encoding.svg" width="450" alt="The 3-punctured disk and its single region diagram"></p>
-
-> **Figure TODO.** Add the boundary face `0` to the region diagram, in the bottom gap between
-> `-3` and `1`. Optionally, label the boundary of the disk `0` on the left and run the blue
-> path along it.
 
 **The dictionary.** A dictionary records which generator each segment belongs to. Initially
 $k \mapsto x_k$, and every new segment inherits the generator of the segment it was cut from.
@@ -76,10 +74,6 @@ region diagram, and the head emerges between `-1` and `-4`. The tail of the arc 
 
 <p align="center"><img src="figs/first_crossing.svg" width="640" alt="Drawing x1: the disk, its region diagram, and the region diagram after the crossing"></p>
 
-> **Figure TODO.** Add `0` between `-3` and `1` in the middle diagram, and between `-3` and `4`
-> in the right-hand one. Optionally, label the boundary of the disk `0`, as in the encoding
-> figure.
-
 ```
 (-4, 2, -2, 3, -3, 0, 4, 1, -1)        {1: x1, 2: x2, 3: x3, 4: x1}
 ```
@@ -92,15 +86,12 @@ straight back in, so it cuts the region in two. (The arc is drawn bottom to top.
 
 <p align="center"><img src="figs/second_crossing.svg" width="630" alt="Drawing x3: the region diagram splits into two"></p>
 
-> **Figure TODO.** Add `0` between `-3` and `4` in the left-hand diagram, and between `-5` and
-> `4` in the right-hand one (the region holding the head).
-
 ```
 ((-5, 0, 4, 1, -1, 3, -3), (-4, 2, -2, 5))        {..., 5: x3}
 ```
 
-The region holding the head is listed first; the others are in no particular order or
-rotation. The last letter is $x_2$, but no face of the head's region carries $x_2$, so the word
+The region holding the head is listed first.
+The others are in no particular order. The last letter is $x_2$, but no face of the head's region corresponds (using the dictionary) to $x_2$, so the word
 cannot be drawn.
 
 Every crossing is one of a handful of cases, set out under [Region updates](#region-updates).
@@ -112,8 +103,7 @@ valid drawings, but different ones, and that matters if the word goes on. So the
 branches whenever several faces fit, and a word is drawable exactly when some branch reaches its
 end.
 
-The code advances every branch together, one letter at a time, as a set of states: dead branches
-drop out, and identical drawings reached in different ways merge.
+The code advances every branch together, one letter at a time, as a set of states. Dead branches are dropped, and identical drawings reached in different ways merge.
 
 ## Signs, labels and the rank
 
@@ -139,12 +129,11 @@ occur in any single simple word.
 
 Draw $w_1$ and keep every configuration of regions it can end in. Start $w_2$ as a new arc in
 any region of any of them, or on any boundary face if $w_2$ starts with `0`, and draw it as
-before; then $w_3$, and so on. Disjointness comes for free: the head only crosses faces of its
-own region, so it never crosses an arc already drawn. One relabelling applies to every word,
-since they share a disk.
+before, then $w_3$, and so on. Disjointness comes for free: the head only crosses faces of its
+own region, so it never crosses an arc already drawn. To consider possible relabellings, using the default `permute=True`, then the relabelling has to be applied to every word, $w_1, w_2, \ldots, w_k$, since they share a disk.
 
 This is strictly stronger than testing words one at a time. `[1, 2, 1]` and `[3, 2, 3]` are each
-drawable but never together. The boundary is especially restrictive: a loop based on the
+drawable but not together. The boundary is especially restrictive, since a loop based on the
 boundary cuts the disk in two, so `[0, 1, 0]` and `[2, 1, 2]` cannot co-exist, though `[1]` and
 `[2, 1, 2]` can.
 
@@ -260,21 +249,16 @@ steps of drawing $x_1 x_2 x_1$ at $n = 2$.
 
 ### Starting on the boundary
 
-A word beginning with `0` starts its arc on a boundary face $b = \rho_i$, crossing nothing. The
-start point splits $b$ into $(b, T)$, and the head waits between the two:
+A word beginning with `0` starts its arc on a boundary face $b = \rho_i$, which corresponds to generator `0`, crossing nothing. The start point splits $b$ into $(b, T)$, and the head now sits between the two:
 
 ```math
 \rho \mapsto (T,\ \rho_{i+1}, \ldots, \rho_k,\ \rho_1, \ldots, \rho_i) = \rho'
 ```
 
-Nothing is cut. Unlike a free start, though, the tail is attached to the boundary, so the first
-crossing is a chord, by one of the continuing cases, and adds a region.
+Only the boundary segment, corresponding to $\rho_i$ is split in two. The next (first) crossing is a chord because the tail is fixed to the boundary.
+It continues by one of the continuing cases (above), and adds a region.
 
 <p align="center"><img src="figs/case_boundary_start.svg" width="375" alt="Starting on the boundary: rho maps to rho prime, the boundary face b split into b and T with the head between them"></p>
-
-> **Figure TODO.** ρ with a boundary face $b$ drawn distinctly (e.g. heavier or coloured)
-> ↦ $\rho'$, with $b$ split into $b$ and $T$ and the head emerging between them, pointing into
-> the region.
 
 `n = 2`, starting on `0`, then crossing `1`:
 
@@ -294,10 +278,6 @@ but there is no region beyond the boundary to take the head, and the arc is fini
 ```
 
 <p align="center"><img src="figs/case_boundary_end.svg" width="545" alt="Ending on the boundary: rho maps to rho prime L plus rho prime R, neither holding the head"></p>
-
-> **Figure TODO.** As the $\rho \mapsto \rho'_L + \rho'_R$ part of the ρ ≠ τ figure, with no τ:
-> the arc runs from the head to a boundary face $b$ and stops; $b$ splits into $T$ (in
-> $\rho'_L$) and $b$ (in $\rho'_R$), and neither half holds a head.
 
 Ending the last example on `0`, which draws `[0, 1, 0]`, a loop round $p_1$ based on the boundary:
 

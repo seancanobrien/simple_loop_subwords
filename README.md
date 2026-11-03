@@ -12,9 +12,9 @@ Joint work with:
 ## Background
 
 Consider a closed unit disk in $\mathbb{C}$ with $n$ punctures on the real axis, with generator
-lines drawn from each puncture to a fixed boundary point at $+i$. These generator lines are
-labelled $\lbrace 1,\ldots,n \rbrace$ according to this left to right positioning on the real
-line. A path traversing a loop in the disk accumulates a word in the free group $F_n$ by
+lines drawn from each puncture to a fixed boundary point at the top of the circle. These
+generator lines are labelled $\lbrace 1,\ldots,n \rbrace$ in the left-to-right order of their
+punctures on the real line. A path traversing a loop in the disk accumulates a word in the free group $F_n$ by
 recording which generator lines it crosses and in which direction. The central question is:
 which words can arise as subwords of simple loops. We use the term *simple words* to refer to
 all words in $F_n$ which correspond to simple loops in this way.

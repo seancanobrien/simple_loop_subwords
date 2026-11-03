@@ -24,15 +24,15 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="64"
-     inkscape:cx="146.28906"
-     inkscape:cy="258.21875"
+     inkscape:zoom="4"
+     inkscape:cx="139.375"
+     inkscape:cy="248"
      inkscape:window-width="1920"
      inkscape:window-height="1041"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="0"
-     inkscape:current-layer="layer1" />
+     inkscape:current-layer="svg1456" />
   <defs
      id="defs1453">
     <inkscape:path-effect
@@ -210,7 +210,7 @@
        transform="matrix(-0.7656483,0,0,0.76637759,83.258346,16.662429)"
        inkscape:path-effect="#path-effect4-3"
        inkscape:original-d="m 47.243941,71.582338 c 0.8064,-0.0042 1.634752,-0.200185 2.341531,-0.608211 0.96684,-0.558162 1.583926,-1.582157 2.267702,-2.464639 0.395318,-0.510197 0.517242,-1.661181 1.052375,-2.022027 0.335245,-0.22602 0.788748,-0.18958 1.191112,-0.22952 0.191344,-0.01895 0.576838,-0.0043 0.576838,-0.0043 h 5.320785"
-       d="m 47.243941,71.582338 c 0.812613,-0.0265 1.618746,-0.235889 2.341531,-0.608211 1.015708,-0.523213 1.873855,-1.392119 2.267702,-2.464639 0.134138,-0.365283 0.214147,-0.749131 0.356918,-1.111128 0.14277,-0.361996 0.360809,-0.712315 0.695457,-0.910899 0.175966,-0.104421 0.376508,-0.162088 0.578873,-0.192353 0.202366,-0.03026 0.407646,-0.03408 0.612239,-0.03717 0.192265,-0.0029 0.384551,-0.0043 0.576838,-0.0043 h 5.320785"
+       d="m 47.243941,71.582338 c 0.812613,-0.0265 1.618746,-0.235889 2.341531,-0.608211 1.015708,-0.523213 1.873855,-1.392119 2.267702,-2.464639 0.134138,-0.365283 0.214147,-0.749131 0.356918,-1.111127 0.14277,-0.361997 0.360809,-0.712316 0.695457,-0.9109 0.175966,-0.10442 0.376508,-0.162087 0.578873,-0.192353 0.202366,-0.03026 0.407646,-0.03407 0.612239,-0.03717 0.192265,-0.0029 0.384551,-0.0043 0.576838,-0.0043 h 5.320785"
        sodipodi:nodetypes="csscccc" />
     <path
        sodipodi:type="star"
@@ -282,21 +282,5 @@
        cy="-39.967972"
        transform="matrix(0,-1,-1,0,0,0)"
        r="0.46408191" />
-  </g>
-  <g
-     inkscape:groupmode="layer"
-     id="layer_todo"
-     inkscape:label="TODO">
-    <text
-       xml:space="preserve"
-       style="font-size:0.9px;line-height:1.25;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';fill:#ff0000;fill-opacity:1;stroke:none"
-       x="35.6029"
-       y="56.7311"
-       id="todo_note"
-       inkscape:label="todo_note"><tspan
-         sodipodi:role="line"
-         x="35.6029"
-         y="56.7311"
-         id="todo_note_tspan">\todonote{(optional, to match the encoding figure) label the boundary of the disk $0$, on the left}</tspan></text>
   </g>
 </svg>

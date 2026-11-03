@@ -60,7 +60,9 @@ and checks `_is_boundary` before doing any sign arithmetic. The new tip region g
 new regions go to the back. `_find_signed` locates `-seg` by a linear scan, `O(n + c)` per step.
 
 The sanity check when editing `forward`: whenever the old end-region is cut, the two halves are
-`region[:i]` plus a new face and `region[i:]`. Only which half (if any) takes the tip differs.
+`region[:i]` plus a new face and `region[i:]`. In case A, the half holding `-seg` also gains
+`-s*T` just after it, and is rotated to start there, because the tip lands there. In case B and
+on the boundary, neither half takes the tip.
 
 ## Invariants
 

@@ -663,17 +663,6 @@
          x="83.705162"
          y="90.906075"
          id="tspan3">{\contour{white}{$\scriptscriptstyle \rho_j$}}</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:1.05833px;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';text-align:start;writing-mode:tb-rl;direction:ltr;text-anchor:start;fill:#ffffff;stroke-width:0.2;stroke-dasharray:0.2, 0.600001"
-       x="70.040474"
-       y="105.24258"
-       id="text43"><tspan
-         sodipodi:role="line"
-         id="tspan43"
-         style="stroke-width:0.2"
-         x="70.040474"
-         y="105.24258">s</tspan></text>
     <ellipse
        style="fill:#ffffff;stroke-width:0.2;stroke-dasharray:0.2, 0.600001"
        id="ellipse43"
@@ -736,21 +725,5 @@
          style="fill:#000000;stroke-width:0.2"
          x="79.660149"
          y="95.852013">$\rho^\prime_R$</tspan></text>
-  </g>
-  <g
-     inkscape:groupmode="layer"
-     id="layer_todo"
-     inkscape:label="TODO">
-    <text
-       xml:space="preserve"
-       style="font-size:0.9px;line-height:1.25;font-family:'Noto Mono';-inkscape-font-specification:'Noto Mono';fill:#ff0000;fill-opacity:1;stroke:none"
-       x="67.5709"
-       y="66.0453"
-       id="todo_note"
-       inkscape:label="todo_note"><tspan
-         sodipodi:role="line"
-         x="67.5709"
-         y="66.0453"
-         id="todo_note_tspan">\todonote{delete the invisible white text s (id text43) below the caption: it leaves a gap under the figure}</tspan></text>
   </g>
 </svg>
