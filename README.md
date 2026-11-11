@@ -4,7 +4,7 @@ Code for determining which words in the free group can appear as subwords of sim
 in a punctured disk.
 
 Joint work with:
-- [Simi Hellsten](https://sites.google.com/view/simihellsten)
+- [Simeon Hellsten](https://sites.google.com/view/simihellsten)
 - [Alicja Pietrzak](https://sites.google.com/view/alicja-pietrzak/home)
 - [Lorna Richardson](https://sites.google.com/view/lornarichardson/home)
 - [Susanna Terron](https://sites.google.com/view/susannaterron)
